@@ -19,15 +19,18 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 import com.ramussoft.common.Engine;
-import com.ramussoft.core.format.ProjectReader;
-import com.ramussoft.core.format.ProjectWriter;
+import com.ramussoft.common.Qualifier;
 import com.ramussoft.core.impl.FileIEngineImpl;
 import com.ramussoft.database.FileDatabaseFactory;
 import com.ramussoft.database.MemoryDatabase;
 
 /**
- * Головна перевірка нового формату: {@code .rsf → YAML → рушій → YAML}.
- * Другий експорт має збігатися з першим, інакше формат не двосторонній.
+ * Головна перевірка нового формату: модель має переживати цикл
+ * {@code .rsf → проєкт → .rsf → проєкт} без втрат.
+ * <p>
+ * Порівнюються всі файли проєкту, без винятків для системних класифікаторів:
+ * читання відбувається нижче рівня плагінів, тож вони мають відновлюватися так
+ * само дослівно, як і користувацькі дані.
  */
 public class ProjectRoundTripTest {
 
@@ -42,202 +45,156 @@ public class ProjectRoundTripTest {
         RsfFixture.isolateHome(folder.newFolder("home"));
     }
 
+    /**
+     * Цикл через {@code .rsf}: проєкт, зібраний назад у архів і знову
+     * розкладений, має дати те саме дерево файлів.
+     */
     @Test
-    public void yamlSurvivesImportAndExport() throws Exception {
+    public void projectSurvivesRsfRoundTrip() throws Exception {
         StringBuilder failures = new StringBuilder();
 
         for (File sample : openableSamples()) {
             File work = folder.newFolder(safeName(sample) + "-rt");
             File first = new File(work, "first");
+            File rebuilt = new File(work, "rebuilt.rsf");
             File second = new File(work, "second");
 
-            exportFromRsf(sample, first);
-            reimport(first, second);
+            RsfFixture.exportProject(sample, first);
+            RsfFixture.importProject(first, rebuilt);
+            RsfFixture.exportProject(rebuilt, second);
 
-            List<String> namesA = userData(listRelative(first));
-            List<String> namesB = userData(listRelative(second));
-            if (!namesA.equals(namesB)) {
-                failures.append('\n').append(sample.getName())
-                        .append(" — різний набір файлів:\n  1: ").append(namesA)
-                        .append("\n  2: ").append(namesB);
-                continue;
-            }
-
-            for (String name : namesA) {
-                String a = read(new File(first, name));
-                String b = read(new File(second, name));
-                if (!a.equals(b))
-                    failures.append('\n').append(sample.getName())
-                            .append(" — ").append(name)
-                            .append(" відрізняється після імпорту:\n")
-                            .append(firstDifference(a, b));
-            }
+            compare(sample.getName(), first, second, failures);
         }
 
         if (failures.length() > 0)
-            fail("Цикл YAML → рушій → YAML не зберігає модель:" + failures);
+            fail("Цикл проєкт → .rsf → проєкт не зберігає модель:" + failures);
     }
 
     /**
-     * Найповніший цикл: {@code .rsf → YAML → .rsf → YAML}. Перевіряє, що
-     * відповідність ідентифікаторів переживає збереження у файл проєкту, а не
-     * лише живе в пам'яті.
+     * Цикл без {@code .rsf}: відкрити проєкт і зберегти його — саме те, що
+     * робить застосунок. Повторне збереження без змін не має чіпати жодного
+     * файлу, інакше кожне відкриття давало б коміт у сховищі версій.
      */
     @Test
-    public void identifiersSurviveRsfSaveAndReload() throws Exception {
+    public void resavingProjectChangesNothing() throws Exception {
+        StringBuilder failures = new StringBuilder();
+
         for (File sample : openableSamples()) {
-            File work = folder.newFolder(safeName(sample) + "-via-rsf");
-            File yamlA = new File(work, "yaml-a");
-            File rebuilt = new File(work, "rebuilt.rsf");
-            File yamlB = new File(work, "yaml-b");
+            File work = folder.newFolder(safeName(sample) + "-resave");
+            File first = new File(work, "first");
+            File second = new File(work, "second");
 
-            exportFromRsf(sample, yamlA);
-            buildRsf(yamlA, rebuilt);
-            exportFromRsf(rebuilt, yamlB);
+            RsfFixture.exportProject(sample, first);
+            RsfFixture.resaveProject(first, second);
 
-            List<String> names = userData(listRelative(yamlA));
-            assertEquals(sample.getName() + ": різний набір файлів",
-                    names, userData(listRelative(yamlB)));
-            for (String name : names)
-                assertEquals(sample.getName() + ": " + name
-                                + " змінився після циклу через .rsf",
-                        read(new File(yamlA, name)),
-                        read(new File(yamlB, name)));
+            compare(sample.getName(), first, second, failures);
         }
+
+        if (failures.length() > 0)
+            fail("Повторне збереження проєкту змінює файли:" + failures);
     }
 
     /**
-     * Найсильніша перевірка формату: діаграми, відмальовані з оригінального
-     * {@code .rsf} і з файлу, зібраного з YAML, мають збігатися піксель у
-     * піксель. Порівняння текстів довело б лише те, що збіглися тексти.
+     * Найсильніша перевірка: діаграми, відмальовані з оригінального
+     * {@code .rsf} і з архіву, зібраного з проєкту, мають збігатися. Порівняння
+     * текстів довело б лише те, що збіглися тексти.
      */
-    @org.junit.Ignore("Системні класифікатори (базові функції моделей) ще не"
-            + " переживають імпорт: їх створюють плагіни у відповідь на зміни."
-            + " Доки це не виправлено, зібраний із YAML файл не має кореневої"
-            + " функції, і діаграма не будується.")
     @Test
     public void diagramsLookIdenticalAfterRoundTrip() throws Exception {
         for (File sample : openableSamples()) {
             File work = folder.newFolder(safeName(sample) + "-render");
-            File yaml = new File(work, "yaml");
+            File project = new File(work, "project");
             File rebuilt = new File(work, "rebuilt.rsf");
 
-            exportFromRsf(sample, yaml);
-            buildRsf(yaml, rebuilt);
+            RsfFixture.exportProject(sample, project);
+            RsfFixture.importProject(project, rebuilt);
 
             Map<String, String> before = renderFrom(sample);
             Map<String, String> after = renderFrom(rebuilt);
 
             assertEquals(sample.getName() + ": різний набір діаграм",
                     before.keySet(), after.keySet());
-            for (Map.Entry<String, String> entry : before.entrySet())
-                assertEquals(sample.getName() + ": діаграма «"
-                                + entry.getKey() + "» відмальовується інакше",
+            for (Map.Entry<String, String> entry : before.entrySet()) {
+                double difference = DiagramRenderer.difference(
                         entry.getValue(), after.get(entry.getKey()));
+                assertTrue(sample.getName() + ": діаграма «" + entry.getKey()
+                                + "» відмальовується інакше (відмінність "
+                                + difference + ")",
+                        difference <= DiagramGoldenTest.TOLERANCE);
+            }
+        }
+    }
+
+    @Test
+    public void openedProjectHasElements() throws Exception {
+        File sample = openableSamples().get(0);
+        File work = folder.newFolder("counts");
+        File project = new File(work, "project");
+        RsfFixture.exportProject(sample, project);
+
+        MemoryDatabase database = (MemoryDatabase) FileDatabaseFactory
+                .createDatabase(project);
+        try {
+            Engine engine = database.getEngine(null);
+            int elements = 0;
+            for (Qualifier qualifier : engine.getQualifiers())
+                elements += engine.getElements(qualifier.getId()).size();
+            assertTrue("відкритий проєкт не містить елементів", elements > 0);
+            ((FileIEngineImpl) engine.getDeligate()).close();
+        } finally {
+            database.close();
         }
     }
 
     /**
-     * Файли, для яких цикл гарантовано зберігає модель.
-     * <p>
-     * Системні класифікатори (базові функції моделей, звіти, сектори) поки що
-     * не переживають імпорт: їхні елементи створюють плагіни у відповідь на
-     * зміни, тож запис через {@code Engine} дає то дублікати, то пропуски.
-     * Це не косметика — доки так, {@code YamlToRsf} не можна вважати
-     * завершеним; правильне рішення описане в плані.
+     * Стан інтерфейсу лежить окремо і не потрапляє під версійний контроль.
      */
-    private static List<String> userData(List<String> names) {
-        List<String> result = new ArrayList<String>();
-        for (String name : names)
-            if (!isPluginManaged(name))
-                result.add(name);
-        return result;
+    @Test
+    public void interfaceStateGoesToLocalDirectory() throws Exception {
+        File sample = openableSamples().get(0);
+        File project = new File(folder.newFolder("local"), "project");
+        RsfFixture.exportProject(sample, project);
+
+        assertTrue("немає .gitignore",
+                new File(project, ".gitignore").isFile());
+        assertEquals(".local/\n", read(new File(project, ".gitignore")));
+
+        for (String name : listRelative(project))
+            assertTrue("стан інтерфейсу потрапив у версійовану частину: "
+                            + name,
+                    !name.contains("/user/") || name.startsWith(".local/"));
     }
 
-    private static boolean isPluginManaged(String name) {
-        return name.startsWith("qualifiers/f-")
-                || name.startsWith("qualifiers/historyqualifier")
-                || name.startsWith("qualifiers/qualifier-")
-                || name.startsWith("qualifiers/plan-list")
-                || name.startsWith("attachments/")
-                // Маніфест потоків перелічує вкладення, а ті висять на
-                // елементах системного класифікатора звітів.
-                || name.equals("streams.yaml");
+    private void compare(String sample, File first, File second,
+                         StringBuilder failures) throws Exception {
+        List<String> namesA = listRelative(first);
+        List<String> namesB = listRelative(second);
+        if (!namesA.equals(namesB)) {
+            failures.append('\n').append(sample)
+                    .append(" — різний набір файлів:\n  1: ").append(namesA)
+                    .append("\n  2: ").append(namesB);
+            return;
+        }
+        for (String name : namesA) {
+            String a = read(new File(first, name));
+            String b = read(new File(second, name));
+            if (!a.equals(b))
+                failures.append('\n').append(sample).append(" — ").append(name)
+                        .append(" відрізняється:\n")
+                        .append(firstDifference(a, b));
+        }
     }
 
-    private static Map<String, String> renderFrom(File rsf) throws Exception {
+    private static Map<String, String> renderFrom(File source)
+            throws Exception {
         MemoryDatabase database = (MemoryDatabase) FileDatabaseFactory
-                .createDatabase(rsf);
+                .createDatabase(source);
         try {
             Engine engine = database.getEngine(null);
             Map<String, String> result = DiagramRenderer.render(engine,
                     database.getAccessRules(null));
             ((FileIEngineImpl) engine.getDeligate()).close();
             return result;
-        } finally {
-            database.close();
-        }
-    }
-
-    private static void buildRsf(File source, File target) throws Exception {
-        MemoryDatabase database = (MemoryDatabase) FileDatabaseFactory
-                .createDatabase();
-        try {
-            Engine engine = database.getEngine(null);
-            new ProjectReader(engine).read(source);
-            ((FileIEngineImpl) engine.getDeligate()).saveToFile(target);
-        } finally {
-            database.close();
-        }
-    }
-
-    @Test
-    public void importRestoresElements() throws Exception {
-        File sample = openableSamples().get(0);
-        File work = folder.newFolder("counts");
-        File exported = new File(work, "exported");
-        exportFromRsf(sample, exported);
-
-        MemoryDatabase database = (MemoryDatabase) FileDatabaseFactory
-                .createDatabase();
-        try {
-            Engine engine = database.getEngine(null);
-            new ProjectReader(engine).read(exported);
-
-            int elements = 0;
-            for (com.ramussoft.common.Qualifier qualifier : engine
-                    .getQualifiers())
-                elements += engine.getElements(qualifier.getId()).size();
-
-            assertTrue("імпорт не створив жодного елемента", elements > 0);
-        } finally {
-            database.close();
-        }
-    }
-
-    private static void exportFromRsf(File sample, File target)
-            throws Exception {
-        MemoryDatabase database = (MemoryDatabase) FileDatabaseFactory
-                .createDatabase(sample);
-        try {
-            Engine engine = database.getEngine(null);
-            new ProjectWriter(engine).write(target);
-            ((FileIEngineImpl) engine.getDeligate()).close();
-        } finally {
-            database.close();
-        }
-    }
-
-    /**
-     * Читає дерево в порожній рушій і одразу експортує назад.
-     */
-    private static void reimport(File source, File target) throws Exception {
-        MemoryDatabase database = (MemoryDatabase) FileDatabaseFactory
-                .createDatabase();
-        try {
-            Engine engine = database.getEngine(null);
-            new ProjectReader(engine).read(source);
-            new ProjectWriter(engine).write(target);
         } finally {
             database.close();
         }
@@ -250,8 +207,8 @@ public class ProjectRoundTripTest {
             String left = i < linesA.length ? linesA[i] : "<немає>";
             String right = i < linesB.length ? linesB[i] : "<немає>";
             if (!left.equals(right))
-                return "    рядок " + (i + 1) + ":\n      1: " + abbreviate(left)
-                        + "\n      2: " + abbreviate(right);
+                return "    рядок " + (i + 1) + ":\n      1: "
+                        + abbreviate(left) + "\n      2: " + abbreviate(right);
         }
         return "    (розбіжність лише в довжині)";
     }
@@ -290,7 +247,8 @@ public class ProjectRoundTripTest {
     private static String read(File file) throws Exception {
         InputStream in = new FileInputStream(file);
         try {
-            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            java.io.ByteArrayOutputStream out =
+                    new java.io.ByteArrayOutputStream();
             byte[] buffer = new byte[8192];
             int count;
             while ((count = in.read(buffer)) > 0)

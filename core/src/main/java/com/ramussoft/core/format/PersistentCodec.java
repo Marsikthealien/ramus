@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import com.ramussoft.common.Engine;
+import com.ramussoft.common.IEngine;
 import com.ramussoft.common.persistent.Persistent;
 import com.ramussoft.common.persistent.PersistentField;
 import com.ramussoft.common.persistent.PersistentWrapper;
@@ -62,27 +62,22 @@ public final class PersistentCodec {
             new LinkedHashMap<Class<?>, PersistentWrapper>();
 
     /**
-     * Потрібен, щоб посилання на інші сутності потрапляли у файл як стабільні
-     * ідентифікатори. Без нього після імпорту вони вказували б на елементи з
-     * тими самими номерами, тобто на випадкові.
-     */
-    private final StableIdRegistry registry;
-
-    /**
      * Потрібен, щоб не записувати обірваних посилань. Такі в даних трапляються:
      * старий формат зберігав числовий ключ видаленого елемента, і це ніяк не
      * проявлялося. Посилання на неіснуючу сутність означає «посилання немає».
+     * <p>
+     * {@code null} вимикає і перевірку існування, і заміну ключів на
+     * ідентифікатори: у такому режимі кодек працює як звичайний мапер полів.
      */
-    private final Engine engine;
+    private final IEngine engine;
 
     private final Map<String, Boolean> exists = new HashMap<String, Boolean>();
 
     public PersistentCodec() {
-        this(null, null);
+        this(null);
     }
 
-    public PersistentCodec(StableIdRegistry registry, Engine engine) {
-        this.registry = registry;
+    public PersistentCodec(IEngine engine) {
         this.engine = engine;
     }
 
@@ -182,13 +177,18 @@ public final class PersistentCodec {
         for (String field : wrapper.getFields()) {
             if (isContextual(field))
                 continue;
-            if (!values.containsKey(field))
-                continue;
-            Object raw = values.get(field);
-            if (raw == null)
-                continue;
             Method setter = wrapper.getSetter(field);
             Class<?> target = setter.getParameterTypes()[0];
+            Object raw = values.get(field);
+            if (raw == null) {
+                // Записувач пропускає порожні поля, тож відсутність у файлі
+                // означає саме порожнє значення. Без цього рядка спрацював би
+                // типовий стан класу (наприклад, порожній рядок замість
+                // невизначеного), і перше ж збереження змінило б файл.
+                if (!target.isPrimitive())
+                    wrapper.setField(persistent, field, null);
+                continue;
+            }
             String kind = referenceKind(clazz, field,
                     wrapper.getAnnotationType(field));
             Object decoded = kind != null
@@ -205,7 +205,7 @@ public final class PersistentCodec {
      */
     private String referenceKind(Class<?> clazz, String field,
                                  int annotationType) {
-        if (registry == null)
+        if (engine == null)
             return null;
         switch (annotationType) {
             case PersistentField.ELEMENT:
@@ -227,12 +227,10 @@ public final class PersistentCodec {
         long numericId = ((Number) value).longValue();
         if (numericId < 0 || !exists(kind, numericId))
             return Long.valueOf(-1L);
-        return registry.stableId(kind, numericId);
+        return StableIds.of(kind, numericId);
     }
 
     private boolean exists(String kind, long numericId) {
-        if (engine == null)
-            return true;
         String key = kind + '#' + numericId;
         Boolean cached = exists.get(key);
         if (cached != null)
@@ -256,13 +254,10 @@ public final class PersistentCodec {
         long numericId;
         if (raw instanceof Number)
             numericId = ((Number) raw).longValue();
-        else {
-            numericId = registry.numericId(kind, raw.toString());
-            if (numericId < 0)
-                // Сутність, на яку вказує посилання, ще не імпортована або
-                // відсутня: лишаємо «немає посилання», а не випадковий ключ.
-                numericId = -1L;
-        }
+        else
+            // Ідентифікатор оборотний, тому ключ відновлюється з нього самого:
+            // ні реєстру, ні порядку читання файлів це не потребує.
+            numericId = StableIds.toNumericId(kind, raw.toString());
         return decode(target, Long.valueOf(numericId));
     }
 

@@ -3,17 +3,16 @@ package com.ramussoft.demo;
 import java.io.File;
 
 import com.ramussoft.common.Engine;
-import com.ramussoft.core.format.ProjectReader;
 import com.ramussoft.core.impl.FileIEngineImpl;
 import com.ramussoft.database.FileDatabaseFactory;
 import com.ramussoft.database.MemoryDatabase;
 
 /**
- * Складає {@code .rsf} з дерева YAML-файлів — зворотний бік
+ * Складає {@code .rsf} з проєкту нового формату — зворотний бік
  * {@link RsfToYaml}.
  * <p>
- * Відповідність «стабільний ідентифікатор ↔ числовий ключ» зберігається в
- * самому проєкті, тому наступний експорт дасть ті самі файли.
+ * Потрібен лише для сумісності зі старими збірками: сам застосунок працює з
+ * каталогом проєкту напряму.
  *
  * <pre>
  * java -cp ... com.ramussoft.demo.YamlToRsf каталог проєкт.rsf
@@ -40,10 +39,9 @@ public final class YamlToRsf {
         File target = new File(args[1]);
 
         MemoryDatabase database = (MemoryDatabase) FileDatabaseFactory
-                .createDatabase();
+                .createDatabase(source);
         try {
             Engine engine = database.getEngine(null);
-            new ProjectReader(engine).read(source);
             ((FileIEngineImpl) engine.getDeligate()).saveToFile(target);
         } finally {
             database.close();

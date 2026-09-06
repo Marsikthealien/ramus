@@ -3,7 +3,6 @@ package com.ramussoft.demo;
 import java.io.File;
 
 import com.ramussoft.common.Engine;
-import com.ramussoft.core.format.ProjectWriter;
 import com.ramussoft.core.impl.FileIEngineImpl;
 import com.ramussoft.database.FileDatabaseFactory;
 import com.ramussoft.database.MemoryDatabase;
@@ -43,8 +42,9 @@ public final class RsfToYaml {
                 .createDatabase(source);
         try {
             Engine engine = database.getEngine(null);
-            new ProjectWriter(engine).write(target);
-            ((FileIEngineImpl) engine.getDeligate()).close();
+            FileIEngineImpl impl = (FileIEngineImpl) engine.getDeligate();
+            impl.saveProject(target);
+            impl.close();
         } finally {
             database.close();
         }

@@ -32,6 +32,8 @@ import com.ramussoft.common.persistent.Persistent;
 import org.xml.sax.SAXException;
 
 import com.ramussoft.common.attribute.AttributePlugin;
+import com.ramussoft.core.format.ProjectReader;
+import com.ramussoft.core.format.ProjectWriter;
 import com.ramussoft.jdbc.JDBCTemplate;
 import com.ramussoft.jdbc.RowMapper;
 
@@ -187,6 +189,89 @@ public class FileIEngineImpl extends IEngineImpl {
 
         if (metadata != null)
             deleteOrphanFileAttachments(metadata);
+    }
+
+    /**
+     * Відкриває проєкт нового формату — каталог із YAML-файлами.
+     * <p>
+     * Викликається там само, де {@link #open(File, boolean)} для {@code .rsf}:
+     * до того, як почнуть працювати плагіни. Завдяки цьому вони бачать уже
+     * готову модель і нічого не добудовують — так само, як при відкритті
+     * старого формату.
+     */
+    public void openProject(File directory, boolean ignoreFileVersion)
+            throws IOException, FileVersionException {
+        if (zFile != null || this.file != null)
+            throw new RuntimeException("Engine has opened file " + this.file);
+        this.file = directory;
+
+        Map<String, Object> project = ProjectReader.readProject(directory);
+        if (!ignoreFileVersion)
+            checkProjectVersion(project);
+
+        new ProjectReader(this, factory).read(directory);
+
+        if (oLock != null)
+            writeFileNameToLock(directory);
+    }
+
+    /**
+     * Перевіряє, що цей застосунок здатен відкрити проєкт.
+     * <p>
+     * Перевірка та сама, що й для {@code .rsf}: проєкт, який посилається на
+     * невідомий плагін, краще не відкривати взагалі, ніж відкрити з мовчазною
+     * втратою тих даних, якими плагін завідував.
+     */
+    @SuppressWarnings("unchecked")
+    private void checkProjectVersion(Map<String, Object> project)
+            throws FileVersionException {
+        Object minimum = project.get("minimum-version");
+        if (minimum != null && isOlderVersion(minimum.toString()))
+            throw new FileMinimumVersionException(minimum.toString());
+
+        Object plugins = project.get("plugins");
+        if (!(plugins instanceof List))
+            return;
+        String[] names = getAllPluginNames(factory.getPlugins());
+        List<String> required = new ArrayList<String>();
+        for (Object plugin : (List<Object>) plugins)
+            required.add(plugin.toString());
+        for (String plugin : required)
+            if (Arrays.asList(names).indexOf(plugin) < 0)
+                throw new FileVersionException(names,
+                        required.toArray(new String[required.size()]), plugin);
+    }
+
+    /**
+     * Зберігає проєкт у каталог нового формату.
+     * <p>
+     * Запис іде на місці, без проміжного каталогу й перейменування: проєкт
+     * зазвичай лежить у сховищі версій, і підміна каталогу знищила б і його
+     * історію, і все, чого формат не знає. Застарілі файли прибирає сам
+     * {@link ProjectWriter}.
+     */
+    public void saveProject(File directory) throws IOException {
+        List<String> sequences = new ArrayList<String>();
+        for (Plugin plugin : factory.getPlugins())
+            for (String sequence : plugin.getSequences())
+                sequences.add(sequence);
+
+        List<String> required = new ArrayList<String>();
+        for (PluginName name : getPluginNames(factory.getPlugins()))
+            if (name.plugin.isCriticatToOpenFile())
+                required.add(name.name);
+
+        new ProjectWriter(this, sequences, required,
+                Metadata.getApplicationName(),
+                Metadata.getApplicationVersion(),
+                Metadata.getFileOpenMinimumVersion()).write(directory);
+
+        this.file = directory;
+        if (oLock != null) {
+            oLock.seek(0);
+            oLock.setLength(0);
+            writeFileNameToLock(directory);
+        }
     }
 
     private void deleteOrphanFileAttachments(FileMetadata metadata) {

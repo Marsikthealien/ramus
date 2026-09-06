@@ -98,6 +98,58 @@ public final class RsfFixture {
     }
 
     /**
+     * Відкриває {@code .rsf} і записує його як проєкт нового формату.
+     */
+    public static void exportProject(File rsf, File directory)
+            throws IOException {
+        MemoryDatabase database = (MemoryDatabase) FileDatabaseFactory
+                .createDatabase(rsf);
+        try {
+            Engine engine = database.getEngine(null);
+            FileIEngineImpl impl = (FileIEngineImpl) engine.getDeligate();
+            impl.saveProject(directory);
+            impl.close();
+        } finally {
+            database.close();
+        }
+    }
+
+    /**
+     * Відкриває проєкт нового формату і зберігає його як {@code .rsf}.
+     */
+    public static void importProject(File directory, File rsf)
+            throws IOException {
+        MemoryDatabase database = (MemoryDatabase) FileDatabaseFactory
+                .createDatabase(directory);
+        try {
+            Engine engine = database.getEngine(null);
+            FileIEngineImpl impl = (FileIEngineImpl) engine.getDeligate();
+            impl.saveToFile(rsf);
+            impl.close();
+        } finally {
+            database.close();
+        }
+    }
+
+    /**
+     * Відкриває проєкт нового формату і зберігає його назад у каталог —
+     * цикл читання/запису без проміжного {@code .rsf}.
+     */
+    public static void resaveProject(File source, File target)
+            throws IOException {
+        MemoryDatabase database = (MemoryDatabase) FileDatabaseFactory
+                .createDatabase(source);
+        try {
+            Engine engine = database.getEngine(null);
+            FileIEngineImpl impl = (FileIEngineImpl) engine.getDeligate();
+            impl.saveProject(target);
+            impl.close();
+        } finally {
+            database.close();
+        }
+    }
+
+    /**
      * Чи здатна поточна версія відкрити файл. Зразки, збережені старшими
      * версіями, можуть посилатися на плагіни, яких у коді вже немає.
      *

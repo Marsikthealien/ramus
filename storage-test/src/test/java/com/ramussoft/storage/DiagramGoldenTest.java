@@ -45,7 +45,13 @@ public class DiagramGoldenTest {
      * несталий тест. Поріг малий: зсув блоку чи зникнення стрілки його
      * перевищують багаторазово.
      */
-    private static final double TOLERANCE = 1.0;
+    /**
+     * Нуль: відмальовування детерміноване, тож підпис має збігатися точно.
+     * Раніше тут був допуск — сектор, який лишає собі підпис, обирався за
+     * порядком обходу {@link java.util.HashSet}, і та сама модель малювалася
+     * по-різному між запусками. Причину усунуто, отже й допуск не потрібен.
+     */
+    static final double TOLERANCE = 0.0;
 
     private static final List<String> KNOWN_UNOPENABLE = Arrays
             .asList("Пример модели.rsf");

@@ -6,7 +6,6 @@ import org.junit.Assume;
 import org.junit.Test;
 
 import com.ramussoft.common.Engine;
-import com.ramussoft.core.format.ProjectWriter;
 import com.ramussoft.core.impl.FileIEngineImpl;
 import com.ramussoft.database.FileDatabaseFactory;
 import com.ramussoft.database.MemoryDatabase;
@@ -32,14 +31,6 @@ public class DumpSampleTest {
             for (File candidate : RsfFixture.sampleFiles())
                 if (candidate.getName().equals(which))
                     sample = candidate;
-        MemoryDatabase database = (MemoryDatabase) FileDatabaseFactory
-                .createDatabase(sample);
-        try {
-            Engine engine = database.getEngine(null);
-            new ProjectWriter(engine).write(new File(target, "out"));
-            ((FileIEngineImpl) engine.getDeligate()).close();
-        } finally {
-            database.close();
-        }
+        RsfFixture.exportProject(sample, new File(target, "out"));
     }
 }

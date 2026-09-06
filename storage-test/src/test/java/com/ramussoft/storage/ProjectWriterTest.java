@@ -18,7 +18,6 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 import com.ramussoft.common.Engine;
-import com.ramussoft.core.format.ProjectWriter;
 import com.ramussoft.core.impl.FileIEngineImpl;
 import com.ramussoft.database.FileDatabaseFactory;
 import com.ramussoft.database.MemoryDatabase;
@@ -123,15 +122,7 @@ public class ProjectWriterTest {
     }
 
     private static void export(File sample, File target) throws Exception {
-        MemoryDatabase database = (MemoryDatabase) FileDatabaseFactory
-                .createDatabase(sample);
-        try {
-            Engine engine = database.getEngine(null);
-            new ProjectWriter(engine).write(target);
-            ((FileIEngineImpl) engine.getDeligate()).close();
-        } finally {
-            database.close();
-        }
+        RsfFixture.exportProject(sample, target);
     }
 
     private List<File> openableSamples() {

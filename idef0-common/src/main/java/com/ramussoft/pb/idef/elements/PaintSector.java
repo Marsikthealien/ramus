@@ -2393,8 +2393,33 @@ public class PaintSector {
         movingArea = area;
     }
 
+    /**
+     * Множина в упорядкованому вигляді.
+     * <p>
+     * Порядок тут не косметика: обидва місця, куди йде цей масив, за ним
+     * вирішують, котрий із з'єднаних секторів залишить собі підпис. Порядок
+     * обходу {@link HashSet} визначається адресами об'єктів, тобто змінюється
+     * від запуску до запуску — і та сама модель малювалася по-різному.
+     * Сортуємо за ключем сектора: він сталий і не залежить від того, як лягла
+     * пам'ять.
+     */
     public static PaintSector[] toArray(final HashSet v) {
-        return ((HashSet<PaintSector>) v).toArray(new PaintSector[v.size()]);
+        PaintSector[] result = ((HashSet<PaintSector>) v)
+                .toArray(new PaintSector[v.size()]);
+        Arrays.sort(result, new java.util.Comparator<PaintSector>() {
+            @Override
+            public int compare(PaintSector a, PaintSector b) {
+                return Long.compare(key(a), key(b));
+            }
+
+            private long key(PaintSector paintSector) {
+                Sector sector = paintSector == null ? null
+                        : paintSector.getSector();
+                return sector == null ? Long.MIN_VALUE
+                        : sector.getGlobalId().getLocalId();
+            }
+        });
+        return result;
     }
 
     private static boolean isIn(final PaintSector[] sectors,
