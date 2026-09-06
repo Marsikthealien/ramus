@@ -46,10 +46,18 @@ public final class PersistentCodec {
             new LinkedHashMap<String, String>();
 
     static {
-        String hierarchical =
-                "com.ramussoft.core.attribute.simple.HierarchicalPersistent";
-        REFERENCE_EXCEPTIONS.put(hierarchical + "#parentElementId", ELEMENT);
-        REFERENCE_EXCEPTIONS.put(hierarchical + "#previousElementId", ELEMENT);
+        String simple = "com.ramussoft.core.attribute.simple.";
+        REFERENCE_EXCEPTIONS.put(simple + "HierarchicalPersistent"
+                + "#parentElementId", ELEMENT);
+        REFERENCE_EXCEPTIONS.put(simple + "HierarchicalPersistent"
+                + "#previousElementId", ELEMENT);
+        // Ціле призначення типу Core.OtherElement — послатися на елемент.
+        REFERENCE_EXCEPTIONS.put(simple + "OtherElementPersistent"
+                + "#otherElement", ELEMENT);
+        // Кінець стрілки, прикріплений до функційного блоку: тут лежить ключ
+        // елемента функції (див. NSectorBorder.setFunction).
+        REFERENCE_EXCEPTIONS.put("com.ramussoft.idef0.attribute"
+                + ".SectorBorderPersistent#function", ELEMENT);
     }
 
     private static final String ELEMENT_ID = "elementId";
