@@ -63,6 +63,28 @@
 **Проєкт можна тримати в git прямо як є.** Збереження без змін не чіпає
 жодного файлу, тож `git status` мовчить, доки модель справді не змінилася.
 
+### Формат розрахований і на агента
+
+Модель читається, обмірковується й правиться звичайними текстовими засобами —
+без розбору бінарника й без запущеного застосунку. Що робить це надійним:
+
+- **Діалект YAML навмисно вузький** — блоковий стиль, сортовані ключі, лапки
+  на рядках, літеральний блок для багаторядкового тексту, без якорів,
+  псевдонімів і перенесення рядків, дублікат ключа — помилка читання.
+  Подробиці — [розділ 2](#2-синтаксис-діалект-yaml).
+- **Запис детермінований**, тож правка дає diff рівно того, що зачепили, а
+  повторне збереження незміненої моделі не дає нічого.
+- **Ідентифікатори стабільні й оборотні**, вид сутності входить у
+  перемішування — елемент і класифікатор ніколи не поділять один
+  ідентифікатор ([розділ 3](#3-ідентифікатори)). Атрибути адресуються за
+  іменем, тож файл читається без словника ([розділ 4](#4-посилання-на-атрибути)).
+- **Читання не виконує коду**: `Load` зі snakeyaml-engine не створює довільних
+  Java-об'єктів, і тег `!!` із чужого файлу лишиться текстом.
+
+Цей документ придатний, щоб віддати його агенту як контекст цілком. Коротший
+робочий протокол — що читати перед правкою, як перевірити результат і де
+зупинитися — у [AGENT_GUIDE.md](AGENT_GUIDE.md).
+
 ---
 
 ## 2. Синтаксис: діалект YAML
@@ -70,17 +92,17 @@
 YAML 1.2, кодування UTF-8. Правила, яких дотримується запис — і яких варто
 дотримуватися при ручній правці:
 
-| Правило | Навіщо |
-|---|---|
-| блоковий стиль, відступ 2 пробіли | рядкові зміни видно в diff |
-| рядки завжди в одинарних лапках | немає «норвезької проблеми»: `'no'`, `'on'`, `'1.0'` лишаються рядками |
-| багаторядковий текст — літеральним блоком `\|` | у diff видно змінений рядок, а не весь абзац |
-| числа й `true`/`false` — без лапок | тип видно з написання |
-| ключі — без лапок, якщо безпечні | `F_BOUNDS:` замість `'F_BOUNDS':` |
-| без якорів і псевдонімів (`&`, `*`) | однакове значення у двох місцях лишається двома значеннями |
-| без перенесення довгих рядків | рядок у файлі = рядок значення |
-| ключі мап відсортовані | порядок не залежить від того, як лягла пам'ять |
-| дублікати ключів — помилка читання | помилка не проходить мовчки |
+| Правило                                        | Навіщо                                                                 |
+| ---------------------------------------------- | ---------------------------------------------------------------------- |
+| блоковий стиль, відступ мап 2 пробіли          | рядкові зміни видно в diff; елементи списку — на рівні свого ключа     |
+| рядки завжди в одинарних лапках                | немає «норвезької проблеми»: `'no'`, `'on'`, `'1.0'` лишаються рядками |
+| багаторядковий текст — літеральним блоком `\|` | у diff видно змінений рядок, а не весь абзац                           |
+| числа й `true`/`false` — без лапок             | тип видно з написання                                                  |
+| ключі — без лапок, якщо безпечні               | `F_BOUNDS:` замість `'F_BOUNDS':`                                      |
+| без якорів і псевдонімів (`&`, `*`)            | однакове значення у двох місцях лишається двома значеннями             |
+| без перенесення довгих рядків                  | рядок у файлі = рядок значення                                         |
+| ключі мап відсортовані                         | порядок не залежить від того, як лягла пам'ять                         |
+| дублікати ключів — помилка читання             | помилка не проходить мовчки                                            |
 
 Читання свідоме: використовується `Load` зі snakeyaml-engine, який **не вміє**
 створювати довільні Java-об'єкти. Тег `!!` із чужого файлу не перетвориться на
@@ -152,14 +174,17 @@ sequences:
   ordinates__sequence: 1
 ```
 
-| Поле | Що це |
-|---|---|
-| `schema` | версія розкладки файлів; читач відмовляється від чужої |
-| `application` | назва застосунку, який записав |
-| `application-version` | його версія; міток часу немає навмисно |
-| `minimum-version` | нижче цієї версії застосунок відмовиться відкривати |
-| `plugins` | плагіни, без яких проєкт не відкрити |
-| `sequences` | лічильники плагінів |
+Перелік `plugins` тут скорочено: у справжньому проєкті їх десятки, від
+`Attribute.Core.Date` до `IDEF0`, і всі відсортовані.
+
+| Поле                  | Що це                                                  |
+| --------------------- | ------------------------------------------------------ |
+| `schema`              | версія розкладки файлів; читач відмовляється від чужої |
+| `application`         | назва застосунку, який записав                         |
+| `application-version` | його версія; міток часу немає навмисно                 |
+| `minimum-version`     | нижче цієї версії застосунок відмовиться відкривати    |
+| `plugins`             | плагіни, без яких проєкт не відкрити                   |
+| `sequences`           | лічильники плагінів                                    |
 
 `plugins` — та сама перевірка, що й у `.rsf`: проєкт, який посилається на
 невідомий плагін, краще не відкривати взагалі, ніж відкрити з мовчазною
@@ -185,21 +210,21 @@ attributes:
     qualifier1: 'geq786'
     qualifier2: '0140fv'
 - ref: 'Name'
-  id: 'a3f2c1'
+  id: 'gsjy4v'
   name: 'Name'
   type: 'Core.Text'
   comparable: true
 ```
 
-| Поле | Що це |
-|---|---|
-| `ref` | як на цей атрибут посилаються всі інші файли |
-| `id` | ідентифікатор, з якого відновлюється числовий ключ |
-| `name` | показувана назва |
-| `type` | `Плагін.Тип` — визначає, який плагін розуміє значення |
-| `comparable` | лише коли `true`: за атрибутом можна впорядковувати |
-| `system` | лише коли `true`: атрибут створює плагін, а не користувач |
-| `properties` | конфігурація плагіна для цього атрибута |
+| Поле         | Що це                                                     |
+| ------------ | --------------------------------------------------------- |
+| `ref`        | як на цей атрибут посилаються всі інші файли              |
+| `id`         | ідентифікатор, з якого відновлюється числовий ключ        |
+| `name`       | показувана назва                                          |
+| `type`       | `Плагін.Тип` — визначає, який плагін розуміє значення     |
+| `comparable` | лише коли `true`: за атрибутом можна впорядковувати       |
+| `system`     | лише коли `true`: атрибут створює плагін, а не користувач |
+| `properties` | конфігурація плагіна для цього атрибута                   |
 
 `properties` — не декорація. Для `Core.ElementList` там записано, які саме
 класифікатори зв'язує атрибут; без цього значення елементів не відновити. Для
@@ -217,7 +242,6 @@ attributes:
 schema: 4
 id: 'jk1apy'
 name: 'Enterprise activity'
-system: false
 name-attribute: 'Name'
 attributes:
 - 'Name'
@@ -230,22 +254,32 @@ elements:
 - id: 'mva0fy'
   name: 'Enterprise activity'
   values:
+    F_BOUNDS:
+      height: 80.0
+      width: 144.0
+      x: 324.0
+      y: 180.0
+    F_FONT:
+      name: 'Dialog'
+      size: 12
+      style: 0
     Name: 'Enterprise activity'
-    F_BOUNDS: { height: 80.0, width: 144.0, x: 324.0, y: 180.0 }
-    F_FONT: { name: 'Dialog', size: 12, style: 0 }
 ```
 
-| Поле | Що це |
-|---|---|
-| `id` | ідентифікатор класифікатора |
-| `name` | назва |
-| `system` | лише коли `true`: класифікатор створює плагін |
-| `name-attribute` | який атрибут вважається назвою елемента |
-| `attributes` | стовпчики класифікатора, **у порядку показу** |
+Списки `system-attributes` і `values` тут скорочено — справжній елемент несе
+ще `F_BACKGROUND`, `F_TYPE`, дати ревізії й інше.
+
+| Поле                | Що це                                                             |
+| ------------------- | ----------------------------------------------------------------- |
+| `id`                | ідентифікатор класифікатора                                       |
+| `name`              | назва                                                             |
+| `system`            | лише коли `true`: класифікатор створює плагін                     |
+| `name-attribute`    | який атрибут вважається назвою елемента                           |
+| `attributes`        | стовпчики класифікатора, **у порядку показу**                     |
 | `system-attributes` | атрибути, які додає плагін; порядок несуттєвий, тому відсортовані |
-| `elements[].id` | ідентифікатор елемента |
-| `elements[].name` | назва в таблиці елементів; здебільшого порожня й тоді відсутня |
-| `elements[].values` | значення, ключі відсортовані за посиланням на атрибут |
+| `elements[].id`     | ідентифікатор елемента                                            |
+| `elements[].name`   | назва в таблиці елементів; здебільшого порожня й тоді відсутня    |
+| `elements[].values` | значення, ключі відсортовані за посиланням на атрибут             |
 
 Порядок `attributes` **значущий** — це порядок стовпчиків у таблиці. Порядок
 `system-attributes` і `elements` — ні; елементи впорядковані за ключем, щоб
@@ -262,12 +296,12 @@ elements:
 Плагін атрибута зберігає значення як набір рядків, іноді в кількох таблицях.
 Формат подає найкоротшу з можливих форм:
 
-| Випадок | Вигляд | Приклад |
-|---|---|---|
-| одне змістове поле, один рядок | скаляр | `Name: 'Опис'` |
-| кілька полів, один рядок | мапа | `F_BOUNDS: { x: 1.0, … }` |
-| кілька рядків | список мап | `F_SECTOR_POINTS: [{…}, {…}]` |
-| кілька таблиць | список списків | `F_PROJECT_PREFERENCES: [[…], […]]` |
+| Випадок                        | Вигляд         | Приклад                             |
+| ------------------------------ | -------------- | ----------------------------------- |
+| одне змістове поле, один рядок | скаляр         | `Name: 'Опис'`                      |
+| кілька полів, один рядок       | мапа           | `F_BOUNDS: { x: 1.0, … }`           |
+| кілька рядків                  | список мап     | `F_SECTOR_POINTS: [{…}, {…}]`       |
+| кілька таблиць                 | список списків | `F_PROJECT_PREFERENCES: [[…], […]]` |
 
 Які типи згортаються до скаляра — у [розділі 9](#9-довідник-типів-атрибутів).
 
@@ -279,14 +313,14 @@ elements:
 
 Типи скалярів:
 
-| Тип поля | Запис | Приклад |
-|---|---|---|
-| `text` | рядок в одинарних лапках | `'Реализованная продукция'` |
-| `long`, `integer` | ціле | `-16711936` |
-| `double` | дробове | `80.0` |
-| `date` | ISO-8601 UTC | `'2009-09-03T11:36:00.000Z'` |
-| `binary` | base64 | `'AQAAAB0AAAD…'` |
-| `element`, `qualifier`, `attribute` | ідентифікатор або `-1` | `'2np969'`, `-1` |
+| Тип поля                            | Запис                    | Приклад                      |
+| ----------------------------------- | ------------------------ | ---------------------------- |
+| `text`                              | рядок в одинарних лапках | `'Реализованная продукция'`  |
+| `long`, `integer`                   | ціле                     | `-16711936`                  |
+| `double`                            | дробове                  | `80.0`                       |
+| `date`                              | ISO-8601 UTC             | `'2009-09-03T11:36:00.000Z'` |
+| `binary`                            | base64                   | `'AQAAAB0AAAD…'`             |
+| `element`, `qualifier`, `attribute` | ідентифікатор або `-1`   | `'2np969'`, `-1`             |
 
 `-1` у полі-посиланні означає «посилання немає». Посилання на сутність, якої в
 проєкті немає, при записі теж перетворюється на `-1`: у старих файлах
@@ -305,23 +339,23 @@ elements:
 
 ### Core
 
-| Тип | Значення | Властивості |
-|---|---|---|
-| `Core.Text` | скаляр `value : text` | — |
-| `Core.Long` | скаляр `value : long` | — |
-| `Core.Double` | скаляр `value : double` | — |
-| `Core.Boolean` | скаляр `value : integer` | — |
-| `Core.Date` | скаляр `value : date` | — |
-| `Core.Currency` | скаляр `value : double` | `attribute`, `code : text` |
-| `Core.Price` | `position : integer`, `startDate : date`, `value : double` | — |
-| `Core.Variant` | скаляр `variantId : long` | `attribute`, `position`, `value : text`, `variantId` |
-| `Core.OtherElement` | скаляр `otherElement : element` | `attribute`, `qualifier`, `qualifierAttribute` |
-| `Core.ElementList` ⚙ | `element1Id : element`, `element2Id : element`, `connectionType : text` | `qualifier1`, `qualifier2`, `connectionTypes : text` |
-| `Core.Hierarchical` ⚙ | `parentElementId : element`, `previousElementId : element`, `iconId : long` | — |
-| `Core.Icon` ⚙ | `name : text`, `icon : binary` | — |
-| `Core.File` | `name`, `path`, `lastModifiedTime`, `uploadTime` | — |
-| `Core.HTMLText` | **немає** — вміст лежить у потоці | — |
-| `Core.Table` | — | `attribute`, `otherAttribute`, `name`, `subName` |
+| Тип                   | Значення                                                                    | Властивості                                          |
+| --------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `Core.Text`           | скаляр `value : text`                                                       | —                                                    |
+| `Core.Long`           | скаляр `value : long`                                                       | —                                                    |
+| `Core.Double`         | скаляр `value : double`                                                     | —                                                    |
+| `Core.Boolean`        | скаляр `value : integer`                                                    | —                                                    |
+| `Core.Date`           | скаляр `value : date`                                                       | —                                                    |
+| `Core.Currency`       | скаляр `value : double`                                                     | `attribute`, `code : text`                           |
+| `Core.Price`          | `position : integer`, `startDate : date`, `value : double`                  | —                                                    |
+| `Core.Variant`        | скаляр `variantId : long`                                                   | `attribute`, `position`, `value : text`, `variantId` |
+| `Core.OtherElement`   | скаляр `otherElement : element`                                             | `attribute`, `qualifier`, `qualifierAttribute`       |
+| `Core.ElementList` ⚙  | `element1Id : element`, `element2Id : element`, `connectionType : text`     | `qualifier1`, `qualifier2`, `connectionTypes : text` |
+| `Core.Hierarchical` ⚙ | `parentElementId : element`, `previousElementId : element`, `iconId : long` | —                                                    |
+| `Core.Icon` ⚙         | `name : text`, `icon : binary`                                              | —                                                    |
+| `Core.File`           | `name`, `path`, `lastModifiedTime`, `uploadTime`                            | —                                                    |
+| `Core.HTMLText`       | **немає** — вміст лежить у потоці                                           | —                                                    |
+| `Core.Table`          | —                                                                           | `attribute`, `otherAttribute`, `name`, `subName`     |
 
 ⚙ — системний тип.
 
@@ -337,24 +371,24 @@ elements:
 
 ### IDEF0
 
-| Тип | Значення |
-|---|---|
-| `IDEF0.FRectangle` ⚙ | `x`, `y`, `width`, `height` : double |
-| `IDEF0.Font` ⚙ | `name : text`, `size : integer`, `style : integer` |
-| `IDEF0.Color` ⚙ | скаляр `color : integer` (ARGB, як `Color.getRGB()`) |
-| `IDEF0.Type` ⚙ | скаляр `type : integer` |
-| `IDEF0.DecompositionType` ⚙ | скаляр `type : integer` |
-| `IDEF0.OunerId` ⚙ | скаляр `ounerId : long` |
-| `IDEF0.Status` ⚙ | `type : integer`, `otherName : text` |
-| `IDEF0.AnyToAny` ⚙ | `otherElement : element`, `elementStatus : text` |
-| `IDEF0.DFDSName` | `shortName : text`, `longName : text` |
-| `IDEF0.TextLabel` ⚙ | `position`, `text`, `x`, `y`, `width`, `height`, `fontName`, `fontStyle`, `fontSize`, `color` |
-| `IDEF0.Sector` ⚙ | вигляд стрілки, див. нижче |
-| `IDEF0.SectorBorder` ⚙ | `borderType`, `functionType : integer`, `function : element`, `crosspoint : long`, `tunnelSoft : integer` |
-| `IDEF0.SectorPoint` ⚙ | `position : integer`, `pointType : integer`, `xPosition`, `yPosition : double`, `xOrdinateId`, `yOrdinateId : long` |
-| `IDEF0.SectorProperties` ⚙ | `showText`, `showTilda`, `transparent : integer`, `textX`, `textY`, `textWidth`, `textHieght`, `tildaPos : double` |
-| `IDEF0.ProjectPreferences` ⚙ | дві таблиці: налаштування моделі та перелік читачів |
-| `IDEF0.VisualData` ⚙ | скаляр `data : binary` — див. [межі](#17-межі-формату) |
+| Тип                          | Значення                                                                                                            |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `IDEF0.FRectangle` ⚙         | `x`, `y`, `width`, `height` : double                                                                                |
+| `IDEF0.Font` ⚙               | `name : text`, `size : integer`, `style : integer`                                                                  |
+| `IDEF0.Color` ⚙              | скаляр `color : integer` (ARGB, як `Color.getRGB()`)                                                                |
+| `IDEF0.Type` ⚙               | скаляр `type : integer`                                                                                             |
+| `IDEF0.DecompositionType` ⚙  | скаляр `type : integer`                                                                                             |
+| `IDEF0.OunerId` ⚙            | скаляр `ounerId : long`                                                                                             |
+| `IDEF0.Status` ⚙             | `type : integer`, `otherName : text`                                                                                |
+| `IDEF0.AnyToAny` ⚙           | `otherElement : element`, `elementStatus : text`                                                                    |
+| `IDEF0.DFDSName`             | `shortName : text`, `longName : text`                                                                               |
+| `IDEF0.TextLabel` ⚙          | `position`, `text`, `x`, `y`, `width`, `height`, `fontName`, `fontStyle`, `fontSize`, `color`                       |
+| `IDEF0.Sector` ⚙             | вигляд стрілки, див. нижче                                                                                          |
+| `IDEF0.SectorBorder` ⚙       | `borderType`, `functionType : integer`, `function : element`, `crosspoint : long`, `tunnelSoft : integer`           |
+| `IDEF0.SectorPoint` ⚙        | `position : integer`, `pointType : integer`, `xPosition`, `yPosition : double`, `xOrdinateId`, `yOrdinateId : long` |
+| `IDEF0.SectorProperties` ⚙   | `showText`, `showTilda`, `transparent : integer`, `textX`, `textY`, `textWidth`, `textHieght`, `tildaPos : double`  |
+| `IDEF0.ProjectPreferences` ⚙ | дві таблиці: налаштування моделі та перелік читачів                                                                 |
+| `IDEF0.VisualData` ⚙         | скаляр `data : binary` — див. [межі](#17-межі-формату)                                                              |
 
 `IDEF0.Sector` — вигляд стрілки: `alternativeText : text`, `showText`,
 `textAligment`, `createState : integer`, `createPos : double`, лінія
@@ -384,11 +418,11 @@ F_PROJECT_PREFERENCES:
 
 ### Eval, Chart
 
-| Тип | Значення |
-|---|---|
-| `Eval.Function` ⚙ | `function : text` (вираз), `autochange : integer`, `qualifierAttributeId`, `qualifierTableAttributeId : long` |
-| `Chart.Link` | скаляр `otherElementId : element` |
-| `Chart.TableChart` | властивість: скаляр `otherElementId : element` |
+| Тип                | Значення                                                                                                      |
+| ------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `Eval.Function` ⚙  | `function : text` (вираз), `autochange : integer`, `qualifierAttributeId`, `qualifierTableAttributeId : long` |
+| `Chart.Link`       | скаляр `otherElementId : element`                                                                             |
+| `Chart.TableChart` | властивість: скаляр `otherElementId : element`                                                                |
 
 ---
 
@@ -398,19 +432,19 @@ F_PROJECT_PREFERENCES:
 класифікаторів. Знати, який класифікатор за що відповідає, необхідно, щоб
 правити модель у файлах.
 
-| Класифікатор | Що тримає |
-|---|---|
-| `F_BASE_FUNCTIONS` | по одному елементу на модель — корінь дерева функцій |
-| `F_MODEL_TREE` | дерево моделей проєкту |
-| `F_SECTORS` | **стрілки**: по елементу на сектор |
-| `F_STREAMS` | **потоки** — те, що стрілки переносять; назва стрілки живе тут |
-| `F_REPORTS_QUALIFIER` | звіти; їхні тіла — у `attachments/` |
-| `IconsQualifier` | піктограми |
-| `QUALIFIER_EVAL_FUNCTION_DEPENDENCES` | залежності обчислюваних атрибутів |
-| `QUALIFIER_CHARTS`, `QUALIFIER_CHART_SETS`, `QUALIFIER_CHART_LINKS` | діаграми модуля Chart |
-| `PLAN_LIST` | плани модуля планування |
-| `QualifiersQualifier`, `AttributesQualifier` | дзеркала метаданих рушія: по елементу на класифікатор і на атрибут |
-| `HistoryQualifier` | залишок механізму гілок; лишається без елементів |
+| Класифікатор                                                        | Що тримає                                                          |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `F_BASE_FUNCTIONS`                                                  | по одному елементу на модель — корінь дерева функцій               |
+| `F_MODEL_TREE`                                                      | дерево моделей проєкту                                             |
+| `F_SECTORS`                                                         | **стрілки**: по елементу на сектор                                 |
+| `F_STREAMS`                                                         | **потоки** — те, що стрілки переносять; назва стрілки живе тут     |
+| `F_REPORTS_QUALIFIER`                                               | звіти; їхні тіла — у `attachments/`                                |
+| `IconsQualifier`                                                    | піктограми                                                         |
+| `QUALIFIER_EVAL_FUNCTION_DEPENDENCES`                               | залежності обчислюваних атрибутів                                  |
+| `QUALIFIER_CHARTS`, `QUALIFIER_CHART_SETS`, `QUALIFIER_CHART_LINKS` | діаграми модуля Chart                                              |
+| `PLAN_LIST`                                                         | плани модуля планування                                            |
+| `QualifiersQualifier`, `AttributesQualifier`                        | дзеркала метаданих рушія: по елементу на класифікатор і на атрибут |
+| `HistoryQualifier`                                                  | залишок механізму гілок; лишається без елементів                   |
 
 Дзеркала (`QualifiersQualifier`, `AttributesQualifier`) містять по елементу на
 кожен класифікатор і на кожен атрибут проєкту. Вони потрібні, щоб на
@@ -421,29 +455,29 @@ F_PROJECT_PREFERENCES:
 **Функційні блоки** — це елементи звичайного, користувацького класифікатора
 моделі (у прикладі — `Enterprise activity`). Кожен блок несе:
 
-| Атрибут | Що це |
-|---|---|
-| `F_BOUNDS` | прямокутник блока на діаграмі |
-| `F_FONT`, `F_BACKGROUND`, `F_FOREGROUND` | вигляд |
-| `F_TYPE`, `F_DECOMPOSITION_TYPE` | тип блока й тип декомпозиції |
-| `F_STATUS` | стан («чернетка», «затверджено», …) |
-| `F_AUTHOR`, `F_CREATE_DATE`, `F_REV_DATE`, `F_SYSTEM_REV_DATE` | хто й коли |
-| `F_OUNER_ID`, `F_LINK` | власник і посилання |
-| `F_PAGE_SIZE` | розмір сторінки діаграми |
-| `F_TEXT_LABELS` | вільні підписи на діаграмі декомпозиції |
-| `F_VISUAL_DATA` | залишок старого блоба, див. [межі](#17-межі-формату) |
-| `HierarchicalAttribute` | місце в дереві: батько й попередник |
+| Атрибут                                                        | Що це                                                |
+| -------------------------------------------------------------- | ---------------------------------------------------- |
+| `F_BOUNDS`                                                     | прямокутник блока на діаграмі                        |
+| `F_FONT`, `F_BACKGROUND`, `F_FOREGROUND`                       | вигляд                                               |
+| `F_TYPE`, `F_DECOMPOSITION_TYPE`                               | тип блока й тип декомпозиції                         |
+| `F_STATUS`                                                     | стан («чернетка», «затверджено», …)                  |
+| `F_AUTHOR`, `F_CREATE_DATE`, `F_REV_DATE`, `F_SYSTEM_REV_DATE` | хто й коли                                           |
+| `F_OUNER_ID`, `F_LINK`                                         | власник і посилання                                  |
+| `F_PAGE_SIZE`                                                  | розмір сторінки діаграми                             |
+| `F_TEXT_LABELS`                                                | вільні підписи на діаграмі декомпозиції              |
+| `F_VISUAL_DATA`                                                | залишок старого блоба, див. [межі](#17-межі-формату) |
+| `HierarchicalAttribute`                                        | місце в дереві: батько й попередник                  |
 
 **Стрілка** — елемент `F_SECTORS` з такими атрибутами:
 
-| Атрибут | Що це |
-|---|---|
-| `F_FUNCTION_SECTOR` | на якій діаграмі (елемент функції) стрілка намальована |
-| `F_SECTOR_STREAM` | який потік переносить (елемент `F_STREAMS`) |
-| `F_SECTOR_BORDER_START` / `_END` | до чого прикріплені кінці |
-| `F_SECTOR_POINTS` | ламана: точки в порядку `position` |
-| `F_SECTOR_ATTRIBUTE` | вигляд лінії, шрифт, колір |
-| `F_SECTOR_PROPERTIES` | розташування підпису |
+| Атрибут                          | Що це                                                  |
+| -------------------------------- | ------------------------------------------------------ |
+| `F_FUNCTION_SECTOR`              | на якій діаграмі (елемент функції) стрілка намальована |
+| `F_SECTOR_STREAM`                | який потік переносить (елемент `F_STREAMS`)            |
+| `F_SECTOR_BORDER_START` / `_END` | до чого прикріплені кінці                              |
+| `F_SECTOR_POINTS`                | ламана: точки в порядку `position`                     |
+| `F_SECTOR_ATTRIBUTE`             | вигляд лінії, шрифт, колір                             |
+| `F_SECTOR_PROPERTIES`            | розташування підпису                                   |
 
 Кінець стрілки (`SectorBorderPersistent`) описаний так:
 
@@ -483,8 +517,8 @@ attachments:
   name: 'report.0.xml'
   file: 'attachments/hqw94n/F_REPORT_NAME/report.0.xml'
 other:
-- path: '/щось/незвичне'
-  file: 'streams/щось/незвичне'
+- path: '/elements/769/17/report.0.xml'
+  file: 'streams/elements/769/17/report.0.xml'
 ```
 
 - **`properties/*`** — налаштування моделі (`/properties/idef0.xml`, формат
@@ -596,6 +630,7 @@ other:
 ```bash
 ./gradlew :ramus-core-demo:rsfToYaml -Prsf=<файл.rsf> -Pout=<каталог>
 ./gradlew :ramus-core-demo:yamlToRsf -Pin=<каталог> -Prsf=<файл.rsf>
+`
 ```
 
 Зворотний конвертер потрібен лише для обміну зі старими збірками.
@@ -628,13 +663,13 @@ other:
 **Кілька полів-посилань лишаються числами.** Вони оголошені як `long`, хоча
 зберігають ключі сутностей. Найпомітніші:
 
-| Поле | На що вказує |
-|---|---|
-| `F_BASE_FUNCTION_QUALIFIER_ID` | класифікатор моделі |
-| `F_LINK` | елемент, на який посилається блок |
-| `HierarchicalPersistent.iconId` | елемент `IconsQualifier` |
-| `Eval.Function.qualifierAttributeId` | атрибут |
-| `crosspoint` у кінці стрілки | вузол розгалуження (не елемент) |
+| Поле                                 | На що вказує                      |
+| ------------------------------------ | --------------------------------- |
+| `F_BASE_FUNCTION_QUALIFIER_ID`       | класифікатор моделі               |
+| `F_LINK`                             | елемент, на який посилається блок |
+| `HierarchicalPersistent.iconId`      | елемент `IconsQualifier`          |
+| `Eval.Function.qualifierAttributeId` | атрибут                           |
+| `crosspoint` у кінці стрілки         | вузол розгалуження (не елемент)   |
 
 Ті, що однозначно вказують на елементи й мають власний клас персистента, вже
 переведені на ідентифікатори. `F_BASE_FUNCTION_QUALIFIER_ID` і `F_LINK` —
@@ -653,22 +688,22 @@ other:
 
 Модуль `storage-test` і тести `local-client`:
 
-| Перевірка | Тест |
-|---|---|
-| проєкт → `.rsf` → проєкт дає ті самі файли | `ProjectRoundTripTest.projectSurvivesRsfRoundTrip` |
-| відкрити й зберегти без змін не чіпає жодного файлу | `resavingProjectChangesNothing` |
-| діаграми після циклу малюються так само | `diagramsLookIdenticalAfterRoundTrip` |
-| проєкт відкривається за `project.ramus` | `projectOpensByItsDescriptionFile` |
-| стан інтерфейсу не потрапляє у версійовану частину | `interfaceStateGoesToLocalDirectory` |
-| `.gitignore` користувача не переписується | там само |
-| новий елемент не займає чужого ключа | `ProjectEditingTest.newElementDoesNotReuseExistingKey` |
-| правка переживає збереження й відкриття | `editedValueSurvivesSaveAndReopen` |
-| порожній проєкт зберігається й відкривається | `freshProjectSavesAndOpens` |
-| знімок для відновлення після збою не обнуляється | `ProjectRecoveryTest` |
-| шлях користувача перетворюється на каталог проєкту | `local-client`: `ProjectNamingTest` |
-| вигляд 56 діаграм не змінився | `DiagramGoldenTest.diagramsMatchGolden` |
-| правила емітера YAML | `YamlFormatTest` |
-| ідентифікатори оборотні | `StableIdsTest` |
+| Перевірка                                           | Тест                                                   |
+| --------------------------------------------------- | ------------------------------------------------------ |
+| проєкт → `.rsf` → проєкт дає ті самі файли          | `ProjectRoundTripTest.projectSurvivesRsfRoundTrip`     |
+| відкрити й зберегти без змін не чіпає жодного файлу | `resavingProjectChangesNothing`                        |
+| діаграми після циклу малюються так само             | `diagramsLookIdenticalAfterRoundTrip`                  |
+| проєкт відкривається за `project.ramus`             | `projectOpensByItsDescriptionFile`                     |
+| стан інтерфейсу не потрапляє у версійовану частину  | `interfaceStateGoesToLocalDirectory`                   |
+| `.gitignore` користувача не переписується           | там само                                               |
+| новий елемент не займає чужого ключа                | `ProjectEditingTest.newElementDoesNotReuseExistingKey` |
+| правка переживає збереження й відкриття             | `editedValueSurvivesSaveAndReopen`                     |
+| порожній проєкт зберігається й відкривається        | `freshProjectSavesAndOpens`                            |
+| знімок для відновлення після збою не обнуляється    | `ProjectRecoveryTest`                                  |
+| шлях користувача перетворюється на каталог проєкту  | `local-client`: `ProjectNamingTest`                    |
+| вигляд 56 діаграм не змінився                       | `DiagramGoldenTest.diagramsMatchGolden`                |
+| правила емітера YAML                                | `YamlFormatTest`                                       |
+| ідентифікатори оборотні                             | `StableIdsTest`                                        |
 
 Порівняння діаграм — точне, без допуску: відмальовування детерміноване.
 
