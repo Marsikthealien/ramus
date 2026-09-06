@@ -16,9 +16,9 @@ Gradle-мультипроєкт, 28 модулів, ~175 000 рядків Java.
 
 Працює у двох режимах:
 
-| Режим | Точка входу | Сховище |
-|---|---|---|
-| Локальний | `local-client` | файл `.rsf` → H2 in-memory |
+| Режим     | Точка входу                         | Сховище                    |
+| --------- | ----------------------------------- | -------------------------- |
+| Локальний | `local-client`                      | файл `.rsf` → H2 in-memory |
 | Мережевий | `client` + `server` / `web-service` | H2 на диску або PostgreSQL |
 
 Обидва режими використовують **одну й ту саму схему БД і той самий `Engine` API**.
@@ -46,13 +46,13 @@ Gradle-мультипроєкт, 28 модулів, ~175 000 рядків Java.
 
 Ключові класи:
 
-| Клас | Роль |
-|---|---|
-| `core/.../impl/FileIEngineImpl.java` | відкриття/збереження `.rsf`, ZIP, сесії, блокування |
-| `core/.../impl/TableToXML.java` | серіалізація таблиці БД → XML |
-| `core/.../impl/XMLToTable.java` | десеріалізація XML → таблиця БД |
-| `core/.../impl/IEngineImpl.java` | реалізація `Engine` поверх SQL |
-| `common/.../persistent/PersistentWrapper.java` | reflection-шар над `@Table`-класами |
+| Клас                                           | Роль                                                |
+| ---------------------------------------------- | --------------------------------------------------- |
+| `core/.../impl/FileIEngineImpl.java`           | відкриття/збереження `.rsf`, ZIP, сесії, блокування |
+| `core/.../impl/TableToXML.java`                | серіалізація таблиці БД → XML                       |
+| `core/.../impl/XMLToTable.java`                | десеріалізація XML → таблиця БД                     |
+| `core/.../impl/IEngineImpl.java`               | реалізація `Engine` поверх SQL                      |
+| `common/.../persistent/PersistentWrapper.java` | reflection-шар над `@Table`-класами                 |
 
 **Важливо:** SQL зустрічається лише у 12 файлах, з них 7 у модулі `core`.
 Тобто формат файлу ізольований у трьох класах, а не розмазаний по кодовій базі.
@@ -160,14 +160,14 @@ public class SectorPointPersistent extends AbstractPersistent {
 
 ## 5. Де живе геометрія діаграм
 
-| Що | Де | Стан |
-|---|---|---|
-| Рамки функційних блоків | `FRectanglePersistent` → `IDEF0/attribute_rectangles` | ✅ структуровано (x, y, w, h) |
-| Точки ламаних стрілок | `SectorPointPersistent` → `IDEF0/attribute_sector_points` | ✅ структуровано |
-| Кінці стрілок | `SectorBorderPersistent` → `IDEF0/attribute_sector_borders` | ✅ структуровано |
-| Шрифти, кольори | `FontPersistent`, `ColorPersistent` | ✅ структуровано |
-| Атрибути вигляду сектора | `SectorPersistent.visualAttributes` `byte[]` | ⚠ блоб |
-| Вільні текстові підписи | `VisualDataPersisitent.data` `byte[]` | ⚠ блоб |
+| Що                       | Де                                                          | Стан                          |
+| ------------------------ | ----------------------------------------------------------- | ----------------------------- |
+| Рамки функційних блоків  | `FRectanglePersistent` → `IDEF0/attribute_rectangles`       | ✅ структуровано (x, y, w, h) |
+| Точки ламаних стрілок    | `SectorPointPersistent` → `IDEF0/attribute_sector_points`   | ✅ структуровано              |
+| Кінці стрілок            | `SectorBorderPersistent` → `IDEF0/attribute_sector_borders` | ✅ структуровано              |
+| Шрифти, кольори          | `FontPersistent`, `ColorPersistent`                         | ✅ структуровано              |
+| Атрибути вигляду сектора | `SectorPersistent.visualAttributes` `byte[]`                | ⚠ блоб                        |
+| Вільні текстові підписи  | `VisualDataPersisitent.data` `byte[]`                       | ⚠ блоб                        |
 
 ### Бік прив'язки стрілки зберігається як геометрія, а не як роль
 
@@ -229,6 +229,7 @@ public boolean isMoveable(final double position)
 З блоба лишається прочитати тільки список вільних текстів.
 
 Симетрично, `getSectorData()` (рядок 758) для v2 у потік пише лише:
+
 - `BIN_VERSION`
 - кількість текстів
 - на кожен текст: font, color, FRectangle, string
@@ -250,13 +251,13 @@ public boolean isMoveable(final double position)
 
 Це найважче, бо ламає git-diff незалежно від синтаксису.
 
-| # | Де | Що |
-|---|---|---|
-| 1 | `TableToXML.java:132` | `generate-time="…new Date().toString()…"` у **кожному** з ~40 файлів → кожне збереження змінює всі файли |
-| 2 | `FileIEngineImpl.java:546-548` | `CurrentTimeMillis` + `CurrentDateTime` у метаданих |
-| 3 | `TableToXML.java:143` | `SELECT * FROM …` без `ORDER BY` → порядок рядків не гарантований |
-| 4 | `FileIEngineImpl.java:503` | ітерація по `Hashtable extractedFiles` → порядок ZIP-записів плаває |
-| 5 | `FileIEngineImpl.createMetadata()` | `Properties.storeToXML` — `Properties` є `Hashtable` |
+| #   | Де                                 | Що                                                                                                       |
+| --- | ---------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| 1   | `TableToXML.java:132`              | `generate-time="…new Date().toString()…"` у **кожному** з ~40 файлів → кожне збереження змінює всі файли |
+| 2   | `FileIEngineImpl.java:546-548`     | `CurrentTimeMillis` + `CurrentDateTime` у метаданих                                                      |
+| 3   | `TableToXML.java:143`              | `SELECT * FROM …` без `ORDER BY` → порядок рядків не гарантований                                        |
+| 4   | `FileIEngineImpl.java:503`         | ітерація по `Hashtable extractedFiles` → порядок ZIP-записів плаває                                      |
+| 5   | `FileIEngineImpl.createMetadata()` | `Properties.storeToXML` — `Properties` є `Hashtable`                                                     |
 
 Пункт 5 видно неозброєним оком у реальному файлі — ключі йдуть у хаотичному порядку:
 
@@ -354,7 +355,7 @@ public static DateFormat DATE_FORMAT = DateFormat.getDateTimeInstance(
 1. **Тестів немає взагалі** — жодного каталогу `src/test`. `Test.java`, `TestFrame.java`,
    `TestImpl.java` у `src/main` — це не тести, а демо/утиліти.
    Інфраструктура оголошена, але не використовується.
-   *(Виправлено на етапі 0: додано модуль `storage-test`.)*
+   _(Виправлено на етапі 0: додано модуль `storage-test`.)_
 2. **Тестові файли з 2009 року** — `ApplicationVersion=1.2`, `BIN_VERSION=1`.
    Вони покривають старий шлях завантаження (сектори з блоба), а не поточний.
    Потрібен свіжий файл, збережений версією 2.0.2.
@@ -366,12 +367,12 @@ public static DateFormat DATE_FORMAT = DateFormat.getDateTimeInstance(
 
 ## 10. Метрики (baseline)
 
-| Показник | Значення |
-|---|---|
-| Модулів Gradle | 28 |
-| Рядків Java | ~175 000 |
-| Файлів із SQL | 12 (7 у `core`) |
-| XML-таблиць у типовому `.rsf` | ~40 |
-| Класів `@Table`-персистентів у IDEF0 | 15 |
-| Бінарних полів у моделі IDEF0 | 2 |
-| Тестів | 0 → 20 (модуль `storage-test`) |
+| Показник                             | Значення                       |
+| ------------------------------------ | ------------------------------ |
+| Модулів Gradle                       | 28                             |
+| Рядків Java                          | ~175 000                       |
+| Файлів із SQL                        | 12 (7 у `core`)                |
+| XML-таблиць у типовому `.rsf`        | ~40                            |
+| Класів `@Table`-персистентів у IDEF0 | 15                             |
+| Бінарних полів у моделі IDEF0        | 2                              |
+| Тестів                               | 0 → 20 (модуль `storage-test`) |
