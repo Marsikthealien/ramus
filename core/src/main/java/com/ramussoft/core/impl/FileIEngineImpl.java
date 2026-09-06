@@ -52,7 +52,12 @@ public class FileIEngineImpl extends IEngineImpl {
 
     private ZipFile zFile;
 
-    private Hashtable<String, File> extractedFiles = new Hashtable<String, File>();
+    /**
+     * Порядок ітерації визначає порядок записів у ZIP, тому мапа має бути
+     * впорядкованою: {@link Hashtable} давала різний порядок між запусками.
+     */
+    private final SortedMap<String, File> extractedFiles = Collections
+            .synchronizedSortedMap(new TreeMap<String, File>());
 
     private ArrayList<String> deletedPaths = new ArrayList<String>();
 
@@ -459,15 +464,15 @@ public class FileIEngineImpl extends IEngineImpl {
         ZipOutputStream zos = new ZipOutputStream(new BufferedOutputStream(
                 stream));
 
-        ZipEntry ze = new ZipEntry(APPLICATION_METADATA);
+        ZipEntry ze = outEntry(APPLICATION_METADATA);
 
         zos.putNextEntry(ze);
 
         Properties ps = createMetadata();
 
-        ps.storeToXML(zos, "Ramus file metadata");
+        PropertiesXml.store(ps, zos, "Ramus file metadata");
 
-        ze = new ZipEntry(SEQUENCES);
+        ze = outEntry(SEQUENCES);
 
         zos.putNextEntry(ze);
 
@@ -477,7 +482,7 @@ public class FileIEngineImpl extends IEngineImpl {
                 ps.setProperty(key, Long.toString(nextValue(key)));
             }
         }
-        ps.storeToXML(zos, "Sequence list file");
+        PropertiesXml.store(ps, zos, "Sequence list file");
 
         saveTable("", "application_preferencies", zos);
         saveTable("", "attributes", zos);
@@ -500,6 +505,7 @@ public class FileIEngineImpl extends IEngineImpl {
 
         savePersistentTables(zos);
 
+        synchronized (extractedFiles) {
         for (Entry<String, File> entry : extractedFiles.entrySet()) {
             String path = entry.getKey();
             if (path.startsWith("/data")) {
@@ -513,6 +519,7 @@ public class FileIEngineImpl extends IEngineImpl {
             copyStreamA(is, zos);
             zos.closeEntry();
             is.close();
+        }
         }
 
         if (zFile != null) {
@@ -528,7 +535,7 @@ public class FileIEngineImpl extends IEngineImpl {
 
                 } else {
                     InputStream is = zFile.getInputStream(e);
-                    zos.putNextEntry(new ZipEntry(e.getName()));
+                    zos.putNextEntry(outEntry(e.getName()));
                     copyStreamA(is, zos);
                     zos.closeEntry();
                     is.close();
@@ -543,9 +550,6 @@ public class FileIEngineImpl extends IEngineImpl {
         PluginName[] plugins = getPluginNames(factory.getPlugins());
         ps.setProperty("ApplicationName", Metadata.getApplicationName());
         ps.setProperty("ApplicationVersion", Metadata.getApplicationVersion());
-        ps.setProperty("CurrentTimeMillis",
-                Long.toString(System.currentTimeMillis()));
-        ps.setProperty("CurrentDateTime", new Date().toString());
         ps.setProperty("FileOpenMinimumVersion",
                 Metadata.getFileOpenMinimumVersion());
         int i = 0;
@@ -561,10 +565,29 @@ public class FileIEngineImpl extends IEngineImpl {
         return ps;
     }
 
+    /**
+     * Мітка часу для всіх записів у ZIP: 1980-06-01T12:00:00Z.
+     * <p>
+     * Реальний час модифікації робив би кожне збереження унікальним на рівні
+     * байтів. Дата навмисно взята в середині 1980 року — так вона лишається в
+     * діапазоні, який формат ZIP кодує без розширених полів, у будь-якому
+     * часовому поясі.
+     */
+    private static final long ZIP_ENTRY_TIME = 328708800000L;
+
+    /**
+     * Створює запис для запису в архів із фіксованою міткою часу.
+     */
+    private static ZipEntry outEntry(String name) {
+        ZipEntry entry = new ZipEntry(name);
+        entry.setTime(ZIP_ENTRY_TIME);
+        return entry;
+    }
+
     private ZipEntry createZipEntry(String path) {
         if (path.startsWith("/"))
-            return new ZipEntry(path.substring(1));
-        return new ZipEntry(path);
+            return outEntry(path.substring(1));
+        return outEntry(path);
     }
 
     public static class PersistentInfo {
@@ -596,7 +619,7 @@ public class FileIEngineImpl extends IEngineImpl {
 
     private void saveTable(String dir, String fileName, ZipOutputStream zos)
             throws IOException {
-        zos.putNextEntry(new ZipEntry("data/" + dir + fileName + ".xml"));
+        zos.putNextEntry(outEntry("data/" + dir + fileName + ".xml"));
         TableToXML toXML = new TableToXML(template, zos, fileName, prefix);
         try {
             toXML.store();
@@ -610,7 +633,7 @@ public class FileIEngineImpl extends IEngineImpl {
 
     private void saveBranches(String dir, String fileName, ZipOutputStream zos)
             throws IOException {
-        zos.putNextEntry(new ZipEntry("data/" + dir + fileName + ".xml"));
+        zos.putNextEntry(outEntry("data/" + dir + fileName + ".xml"));
         TableToXML toXML = new TableToXML(template, zos, fileName, prefix) {
             @Override
             protected boolean resultSetNext(ResultSet rs) throws SQLException {

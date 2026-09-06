@@ -30,6 +30,7 @@ import com.ramussoft.pb.Crosspoint;
 import com.ramussoft.pb.DataPlugin;
 import com.ramussoft.pb.Function;
 import com.ramussoft.pb.Row;
+import com.ramussoft.idef0.attribute.SectorPersistent;
 import com.ramussoft.pb.Sector;
 import com.ramussoft.pb.Stream;
 import com.ramussoft.pb.data.AbstractSector;
@@ -1080,6 +1081,14 @@ public class PaintSector {
     }
 
     private void loadVisuals() {
+        SectorPersistent state = sector.getVisualState();
+        if (state != null && state.getStrokeKind() != null) {
+            loadVisualsFromFields(state);
+            return;
+        }
+
+        // Старий шлях: вигляд запакований у двійкове поле. Лишається для
+        // читання наявних файлів; при першому ж збереженні переїде в поля.
         final byte[] bs = sector.getVisualAttributes();
         if (bs.length == 0) {
             stroke = Options.getStroke("DEFAULT_ARROW_STROKE", stroke);
@@ -1097,19 +1106,106 @@ public class PaintSector {
         }
     }
 
-    public void saveVisual() {
-        try {
-            final DataLoader.MemoryData memoryData = new DataLoader.MemoryData();
-            final ByteArrayOutputStream os = new ByteArrayOutputStream();
-            DataSaver.saveStroke(os, stroke, memoryData);
-            DataSaver.saveFont(os, font, memoryData);
-            DataSaver.saveColor(os, color, memoryData);
-            sector.setVisualAttributes(os.toByteArray());
-            os.close();
-        } catch (final IOException e) {
-            e.printStackTrace();
+    private void loadVisualsFromFields(final SectorPersistent state) {
+        String kind = state.getStrokeKind();
+        if (STROKE_BASIC.equals(kind)) {
+            stroke = new BasicStroke(number(state.getStrokeWidth(), 1f),
+                    integer(state.getStrokeEndCap(), BasicStroke.CAP_SQUARE),
+                    integer(state.getStrokeLineJoin(), BasicStroke.JOIN_MITER),
+                    number(state.getStrokeMiterLimit(), 10f),
+                    parseDash(state.getStrokeDash()),
+                    number(state.getStrokeDashPhase(), 0f));
+        } else if (STROKE_WAY.equals(kind)) {
+            WayStroke wayStroke = new WayStroke(-1);
+            wayStroke.setType(integer(state.getStrokeType(), 0));
+            stroke = wayStroke;
+        } else if (STROKE_ARROWED.equals(kind)) {
+            ArrowedStroke arrowedStroke = new ArrowedStroke(-1, -1);
+            arrowedStroke.setType(integer(state.getStrokeType(), 0));
+            stroke = arrowedStroke;
         }
+
+        if (state.getFontName() != null)
+            font = new Font(state.getFontName(),
+                    integer(state.getFontStyle(), Font.PLAIN),
+                    integer(state.getFontSize(), 12));
+        if (state.getColor() != null)
+            color = new Color(state.getColor().intValue(), true);
     }
+
+    private static float number(final java.lang.Double value,
+                               final float fallback) {
+        return value == null ? fallback : value.floatValue();
+    }
+
+    private static int integer(final Integer value, final int fallback) {
+        return value == null ? fallback : value.intValue();
+    }
+
+    /**
+     * @return довжини штрихів або {@code null}, якщо лінія суцільна
+     */
+    private static float[] parseDash(final String value) {
+        if (value == null || value.length() == 0)
+            return null;
+        String[] parts = value.split(",");
+        float[] dash = new float[parts.length];
+        for (int i = 0; i < parts.length; i++)
+            dash[i] = Float.parseFloat(parts[i]);
+        return dash;
+    }
+
+    private static String formatDash(final float[] dash) {
+        if (dash == null || dash.length == 0)
+            return null;
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < dash.length; i++) {
+            if (i > 0)
+                sb.append(',');
+            sb.append(dash[i]);
+        }
+        return sb.toString();
+    }
+
+    public void saveVisual() {
+        SectorPersistent state = new SectorPersistent();
+
+        if (stroke instanceof BasicStroke) {
+            BasicStroke basic = (BasicStroke) stroke;
+            state.setStrokeKind(STROKE_BASIC);
+            state.setStrokeWidth(java.lang.Double.valueOf(
+                    basic.getLineWidth()));
+            state.setStrokeEndCap(Integer.valueOf(basic.getEndCap()));
+            state.setStrokeLineJoin(Integer.valueOf(basic.getLineJoin()));
+            state.setStrokeDashPhase(java.lang.Double.valueOf(
+                    basic.getDashPhase()));
+            state.setStrokeMiterLimit(java.lang.Double.valueOf(
+                    basic.getMiterLimit()));
+            state.setStrokeDash(formatDash(basic.getDashArray()));
+        } else if (stroke instanceof WayStroke) {
+            state.setStrokeKind(STROKE_WAY);
+            state.setStrokeType(Integer.valueOf(((WayStroke) stroke).getType()));
+        } else if (stroke instanceof ArrowedStroke) {
+            state.setStrokeKind(STROKE_ARROWED);
+            state.setStrokeType(Integer.valueOf(((ArrowedStroke) stroke).getType()));
+        }
+
+        if (font != null) {
+            state.setFontName(font.getName());
+            state.setFontStyle(Integer.valueOf(font.getStyle()));
+            state.setFontSize(Integer.valueOf(font.getSize()));
+        }
+        if (color != null)
+            state.setColor(Integer.valueOf(color.getRGB()));
+
+        sector.setVisualState(state);
+    }
+
+    private static final String STROKE_BASIC = "basic";
+
+    private static final String STROKE_WAY = "way";
+
+    private static final String STROKE_ARROWED = "arrowed";
 
     /**
      * Зберігає сектор в потік.
