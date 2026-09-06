@@ -423,6 +423,8 @@ public class SimleGUIPluginFactory extends AbstractGUIPluginFactory {
 
         framework.propertyChanged("MainFrameCreated");
 
+        fireUniqueViewsVisibility();
+
         showWorkspacePlugin.createWorkspaceToolBar();
 
         getContentArea()
@@ -701,6 +703,32 @@ public class SimleGUIPluginFactory extends AbstractGUIPluginFactory {
         return null;
     }
 
+    /**
+     * Повідомляє про дійсний стан усіх унікальних вікон, щоб пункти меню
+     * відповідали тому, що показано насправді.
+     */
+    protected void fireUniqueViewsVisibility() {
+        for (UniqueView view : uniqueViews)
+            framework.propertyChanged(
+                    ActionEvent.UNIQUE_VIEW_VISIBILITY_CHANGED, view.getId());
+    }
+
+    @Override
+    public boolean isUniqueViewVisible(String id) {
+        UniqueDFrame dockable = findUniqueDockable(id);
+        return (dockable == null) || control.isVisible(dockable);
+    }
+
+    @Override
+    public void setUniqueViewVisible(String id, boolean visible) {
+        UniqueDFrame dockable = findUniqueDockable(id);
+        if (dockable == null)
+            return;
+        control.setVisible(dockable, visible);
+        if (visible)
+            dockable.requestFocus();
+    }
+
     public UniqueDFrame findUniqueDockable(String id) {
         for (UniqueDFrame dockable : uniqueDockables) {
             if (dockable.getUniqueId().equals(id))
@@ -778,6 +806,7 @@ public class SimleGUIPluginFactory extends AbstractGUIPluginFactory {
                 break;
             }
         }
+        fireUniqueViewsVisibility();
     }
 
     private void loadCurrentWorkspase() {

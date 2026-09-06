@@ -33,11 +33,29 @@ public class ShowViewPlugin extends AbstractViewPlugin {
                     public void onAction(
                             com.ramussoft.gui.common.event.ActionEvent event) {
                         framework.openView(event);
-                        Action action = viewActions.get(event.getValue());
-                        if (action != null)
-                            action.putValue(Action.SELECTED_KEY, Boolean.TRUE);
+                        updateAction(event.getValue());
                     }
                 });
+        framework
+                .addActionListener(
+                        com.ramussoft.gui.common.event.ActionEvent.UNIQUE_VIEW_VISIBILITY_CHANGED,
+                        new ActionListener() {
+                            @Override
+                            public void onAction(
+                                    com.ramussoft.gui.common.event.ActionEvent event) {
+                                updateAction(event.getValue());
+                            }
+                        });
+    }
+
+    /**
+     * Приводить стан пункту меню до дійсного стану вікна.
+     */
+    private void updateAction(Object viewId) {
+        Action action = viewActions.get(viewId);
+        if (action != null)
+            action.putValue(Action.SELECTED_KEY, factory
+                    .isUniqueViewVisible((String) viewId));
     }
 
     public ShowViewPlugin(List<UniqueView> views, AbstractGUIPluginFactory factory) {
@@ -68,19 +86,24 @@ public class ShowViewPlugin extends AbstractViewPlugin {
 
                 @Override
                 public void actionPerformed(ActionEvent e) {
-                    framework
-                            .propertyChanged(
-                                    com.ramussoft.gui.common.event.ActionEvent.OPEN_STATIC_VIEW,
-                                    view.getId());
+                    if (Boolean.TRUE.equals(getValue(Action.SELECTED_KEY)))
+                        framework
+                                .propertyChanged(
+                                        com.ramussoft.gui.common.event.ActionEvent.OPEN_STATIC_VIEW,
+                                        view.getId());
+                    else
+                        factory.setUniqueViewVisible(view.getId(), false);
+                    updateAction(view.getId());
                 }
             };
 
             action.putValue(Action.ACTION_COMMAND_KEY, factory
                     .findPluginForViewId(view.getId()).getString(view.getId()));
+            action.putValue(Action.SELECTED_KEY, factory
+                    .isUniqueViewVisible(view.getId()));
             viewActions.put(view.getId(), action);
             descriptor.setAction(action);
             descriptor.setSelective(true);
-            descriptor.setButtonGroup("ShowView");
             descriptor.setMenu("View");
         }
         return descriptors;
