@@ -209,10 +209,49 @@ public class FileIEngineImpl extends IEngineImpl {
         if (!ignoreFileVersion)
             checkProjectVersion(project);
 
+        // Знімок вихідного стану для відновлення після збою: журнал сеансу
+        // містить лише зміни, тож без бази, на яку їх накотити, він марний.
+        if (tmpPath != null)
+            copyProject(directory, new File(tmpPath, "source.rms"));
+
         new ProjectReader(this, factory).read(directory);
 
         if (oLock != null)
             writeFileNameToLock(directory);
+    }
+
+    /**
+     * Копіює каталог проєкту.
+     * <p>
+     * {@code .git} свідомо пропускаємо: проєкт зазвичай лежить у сховищі
+     * версій, і тягнути всю його історію в тимчасовий знімок при кожному
+     * відкритті — це хвилини очікування замість секунд.
+     */
+    private void copyProject(File source, File destination)
+            throws IOException {
+        if (source.isDirectory()) {
+            if (".git".equals(source.getName()))
+                return;
+            if (!destination.isDirectory() && !destination.mkdirs())
+                throw new IOException("Не вдалося створити каталог "
+                        + destination);
+            File[] children = source.listFiles();
+            if (children != null)
+                for (File child : children)
+                    copyProject(child, new File(destination, child.getName()));
+        } else {
+            FileInputStream is = new FileInputStream(source);
+            try {
+                FileOutputStream os = new FileOutputStream(destination);
+                try {
+                    copyStreamA(is, os);
+                } finally {
+                    os.close();
+                }
+            } finally {
+                is.close();
+            }
+        }
     }
 
     /**
