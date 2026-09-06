@@ -530,10 +530,40 @@ public class ProjectWriter {
 
     /**
      * Пояснює git, що каталог зі станом інтерфейсу версіонувати не треба.
+     * <p>
+     * Наявний файл не перезаписується, а доповнюється: це файл користувача, і
+     * його власні правила мають пережити збереження проєкту.
      */
     private void writeGitignore(File directory) throws IOException {
+        File file = new File(directory, ".gitignore");
+        String rule = LOCAL_DIR + "/";
+        if (!file.isFile()) {
+            writeBytes(directory, ".gitignore", (rule + "\n")
+                    .getBytes("UTF-8"));
+            return;
+        }
+        String text = new String(read(file), "UTF-8");
+        for (String line : text.split("\n"))
+            if (rule.equals(line.trim()) || LOCAL_DIR.equals(line.trim()))
+                return;
+        String separator = text.length() == 0 || text.endsWith("\n") ? "" : "\n";
         writeBytes(directory, ".gitignore",
-                (LOCAL_DIR + "/\n").getBytes("UTF-8"));
+                (text + separator + rule + "\n").getBytes("UTF-8"));
+    }
+
+    private static byte[] read(File file) throws IOException {
+        java.io.InputStream in = new java.io.FileInputStream(file);
+        try {
+            java.io.ByteArrayOutputStream out =
+                    new java.io.ByteArrayOutputStream();
+            byte[] buffer = new byte[8192];
+            int count;
+            while ((count = in.read(buffer)) > 0)
+                out.write(buffer, 0, count);
+            return out.toByteArray();
+        } finally {
+            in.close();
+        }
     }
 
     /**

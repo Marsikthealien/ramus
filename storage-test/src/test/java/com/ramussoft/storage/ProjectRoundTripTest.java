@@ -187,6 +187,18 @@ public class ProjectRoundTripTest {
                 new File(project, ".gitignore").isFile());
         assertEquals(".local/\n", read(new File(project, ".gitignore")));
 
+        // Файл належить користувачеві: збереження проєкту не має стирати
+        // його власних правил.
+        java.io.Writer writer = new java.io.OutputStreamWriter(
+                new java.io.FileOutputStream(new File(project, ".gitignore")),
+                "UTF-8");
+        writer.write("*.bak\n.local/\n");
+        writer.close();
+
+        RsfFixture.resaveProject(project, project);
+        assertEquals("*.bak\n.local/\n",
+                read(new File(project, ".gitignore")));
+
         for (String name : listRelative(project))
             assertTrue("стан інтерфейсу потрапив у версійовану частину: "
                             + name,
