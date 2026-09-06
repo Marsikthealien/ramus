@@ -230,6 +230,12 @@ public class FileIEngineImpl extends IEngineImpl {
      */
     private void copyProject(File source, File destination)
             throws IOException {
+        if (source.equals(destination))
+            // Відновлення після збою: рушій відкриває сам знімок, і копіювати
+            // його нікуди не треба. Без цієї перевірки кожен файл знімка
+            // відкривався б на запис перед читанням, тобто обнулявся б, і
+            // відновлення давало б порожній проєкт.
+            return;
         if (source.isDirectory()) {
             if (".git".equals(source.getName()))
                 return;
