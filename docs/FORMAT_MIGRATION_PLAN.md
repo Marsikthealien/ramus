@@ -3,7 +3,7 @@
 Створено: 2026-09-06
 Оновлено: 2026-09-06 — перехід завершено, крім етапу 4 (розділ 0)
 Вихідний стан: [START_REVIEW.md](START_REVIEW.md)
-Опис формату: [PROJECT_FORMAT.md](PROJECT_FORMAT.md)
+Опис формату: [PROJECT_FORMAT.md](PROJECT_FORMAT.md) — повний довідник
 
 ---
 
@@ -84,6 +84,7 @@
 | `core/.../format/StableIds.java` | оборотні `<slug>--<id>` |
 | `core/.../format/ProjectWriter.java` | запис проєкту в дерево YAML |
 | `core/.../format/ProjectReader.java` | читання проєкту нижче рівня плагінів |
+| `storage-test/.../DumpSchemaTest.java` | друк схеми типів атрибутів для звірки з докою |
 | `core/.../format/yaml/YamlFormat.java` | канонічні налаштування YAML 1.2 |
 | `common/.../PropertiesXml.java` | детермінований запис `Properties` |
 | `ramus-core-demo/.../RsfToYaml.java` | CLI: `.rsf` → YAML |

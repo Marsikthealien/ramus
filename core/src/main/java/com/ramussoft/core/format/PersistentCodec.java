@@ -58,6 +58,12 @@ public final class PersistentCodec {
         // елемента функції (див. NSectorBorder.setFunction).
         REFERENCE_EXCEPTIONS.put("com.ramussoft.idef0.attribute"
                 + ".SectorBorderPersistent#function", ELEMENT);
+        REFERENCE_EXCEPTIONS.put("com.ramussoft.idef0.attribute"
+                + ".AnyToAnyPersistent#otherElement", ELEMENT);
+        REFERENCE_EXCEPTIONS.put("com.ramussoft.chart.core"
+                + ".ChartLinkPersistent#otherElementId", ELEMENT);
+        REFERENCE_EXCEPTIONS.put("com.ramussoft.chart.core"
+                + ".TableChartPersistent#otherElementId", ELEMENT);
     }
 
     private static final String ELEMENT_ID = "elementId";

@@ -27,7 +27,7 @@ dependencies {
 
 test {
     // Прокидаємо властивість у JVM тестів: без цього -D осідає на Gradle.
-    ['ramus.dump.target', 'ramus.dump.sample', 'ramus.diagnose', 'ramus.golden.update'].each { name ->
+    ['ramus.dump.target', 'ramus.dump.sample', 'ramus.diagnose', 'ramus.golden.update', 'ramus.schema.target'].each { name ->
         if (System.getProperty(name)) {
             systemProperty name, System.getProperty(name)
         }

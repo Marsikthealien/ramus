@@ -458,20 +458,19 @@ public class GUIPluginFactory extends AbstractGUIPluginFactory {
                 list.add((ViewPlugin) plugin);
             }
         }
-        ShowViewPlugin showViewPlugin = new ShowViewPlugin(uniqueViews, this);
-        showViewPlugin.setFramework(framework);
-        list.add(showViewPlugin);
+        LookAndFeelPlugin lookAndFeelPlugin = new LookAndFeelPlugin();
+        lookAndFeelPlugin.setFramework(framework);
+        list.add(lookAndFeelPlugin);
         ShowWorkspacePlugin showWorkspacePlugin = new ShowWorkspacePlugin(this);
         showWorkspacePlugin.setFramework(framework);
         list.add(showWorkspacePlugin);
+        ShowViewPlugin showViewPlugin = new ShowViewPlugin(uniqueViews, this);
+        showViewPlugin.setFramework(framework);
+        list.add(showViewPlugin);
         PreferenciesPlugin preferenciesPlugin = new PreferenciesPlugin(list,
                 engine);
         preferenciesPlugin.setFramework(framework);
         list.add(preferenciesPlugin);
-
-        LookAndFeelPlugin lookAndFeelPlugin = new LookAndFeelPlugin();
-        lookAndFeelPlugin.setFramework(framework);
-        list.add(lookAndFeelPlugin);
 
         engine.setPluginProperty("GUI", "PluginList", plugins);
 
