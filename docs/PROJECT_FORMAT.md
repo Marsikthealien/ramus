@@ -292,6 +292,8 @@ attachments:
 | стан інтерфейсу не потрапляє у версійовану частину | `interfaceStateGoesToLocalDirectory` |
 | новий елемент не займає чужого ключа | `ProjectEditingTest.newElementDoesNotReuseExistingKey` |
 | правка переживає збереження й відкриття | `editedValueSurvivesSaveAndReopen` |
+| порожній проєкт зберігається й відкривається | `freshProjectSavesAndOpens` |
+| шлях користувача перетворюється на каталог проєкту | `local-client`: `ProjectNamingTest` |
 | вигляд 56 діаграм не змінився | `DiagramGoldenTest.diagramsMatchGolden` |
 
 Порівняння діаграм — точне, без допуску: відмальовування детерміноване.

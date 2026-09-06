@@ -134,6 +134,46 @@ public class ProjectEditingTest {
         }
     }
 
+    /**
+     * Порожній проєкт — те, що отримує користувач після «Створити».
+     * <p>
+     * Тут немає жодного файлу, з якого можна було б щось успадкувати, тож
+     * увесь вміст мають дати плагіни; якщо збереження такого проєкту не
+     * читається назад, новий документ неможливо створити взагалі.
+     */
+    @Test
+    public void freshProjectSavesAndOpens() throws Exception {
+        File fresh = new File(folder.newFolder("fresh"), "Новий.ramus");
+
+        MemoryDatabase database = (MemoryDatabase) FileDatabaseFactory
+                .createDatabase();
+        long qualifierId;
+        try {
+            Engine engine = database.getEngine(null);
+            Qualifier qualifier = engine.createQualifier();
+            qualifier.setName("Довідник");
+            engine.updateQualifier(qualifier);
+            qualifierId = qualifier.getId();
+
+            FileIEngineImpl impl = (FileIEngineImpl) engine.getDeligate();
+            impl.saveProject(fresh);
+            impl.close();
+        } finally {
+            database.close();
+        }
+
+        database = (MemoryDatabase) FileDatabaseFactory.createDatabase(fresh);
+        try {
+            Engine engine = database.getEngine(null);
+            Qualifier qualifier = engine.getQualifier(qualifierId);
+            assertNotNull("класифікатор не пережив збереження", qualifier);
+            assertEquals("Довідник", qualifier.getName());
+            ((FileIEngineImpl) engine.getDeligate()).close();
+        } finally {
+            database.close();
+        }
+    }
+
     private static Qualifier biggest(Engine engine) {
         Qualifier result = null;
         int count = -1;
