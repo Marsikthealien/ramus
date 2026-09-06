@@ -46,9 +46,14 @@ public class ProjectWriter {
     public static final int SCHEMA_VERSION = 4;
 
     /**
-     * Ім'я каталогу проєкту, який відкриває застосунок.
+     * Опис проєкту — файл, за яким проєкт упізнають і система, і застосунок.
+     * <p>
+     * Розширення власне, а не {@code .yaml}: каталог сам по собі неможливо
+     * пов'язати з програмою засобами робочого столу, а файл — можна, тож саме
+     * він і є тим, що відкривають подвійним клацанням. Вміст при цьому
+     * звичайний YAML.
      */
-    public static final String PROJECT_FILE = "project.yaml";
+    public static final String PROJECT_FILE = "project.ramus";
 
     static final String ATTRIBUTES_FILE = "attributes.yaml";
 

@@ -75,19 +75,36 @@ public class ProjectReader {
     }
 
     /**
-     * @return вміст {@code project.yaml}
+     * @return вміст опису проєкту
      */
     public static Map<String, Object> readProject(File directory)
             throws IOException {
-        return readDocument(new File(directory, ProjectWriter.PROJECT_FILE));
+        return readDocument(new File(directoryOf(directory),
+                ProjectWriter.PROJECT_FILE));
     }
 
     /**
-     * @return {@code true}, якщо каталог схожий на проєкт нового формату
+     * @return {@code true}, якщо шлях указує на проєкт нового формату — сам
+     * каталог або його опис
      */
-    public static boolean isProject(File directory) {
+    public static boolean isProject(File file) {
+        File directory = directoryOf(file);
         return directory != null && directory.isDirectory()
                 && new File(directory, ProjectWriter.PROJECT_FILE).isFile();
+    }
+
+    /**
+     * Каталог проєкту.
+     * <p>
+     * Приймає і сам каталог, і його опис: із робочого столу приходить файл,
+     * із діалогу вибору — каталог, і жодна зі сторін не має про це знати.
+     */
+    public static File directoryOf(File file) {
+        if (file == null)
+            return null;
+        if (ProjectWriter.PROJECT_FILE.equals(file.getName()))
+            return file.getParentFile();
+        return file;
     }
 
     public void read(File directory) throws IOException {

@@ -160,7 +160,8 @@ public class FilePlugin extends AbstractViewPlugin implements Commands {
                 // Каталоги видно завжди: інакше ні до проєкту не дійти, ні
                 // самого проєкту не вибрати — він теж каталог.
                 return true;
-            return f.getName().toLowerCase().endsWith(getRSF());
+            return ProjectReader.isProject(f)
+                    || f.getName().toLowerCase().endsWith(getRSF());
         }
 
         @Override
@@ -862,6 +863,7 @@ public class FilePlugin extends AbstractViewPlugin implements Commands {
      * стає {@code модель.ramus}, шлях без розширення його отримує.
      */
     static File projectName(File file) {
+        file = ProjectReader.directoryOf(file);
         String name = file.getName();
         if (name.toLowerCase().endsWith(PROJECT))
             return file;

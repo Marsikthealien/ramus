@@ -199,15 +199,16 @@ public class FileIEngineImpl extends IEngineImpl {
      * готову модель і нічого не добудовують — так само, як при відкритті
      * старого формату.
      */
-    public void openProject(File directory, boolean ignoreFileVersion)
+    public void openProject(File project, boolean ignoreFileVersion)
             throws IOException, FileVersionException {
         if (zFile != null || this.file != null)
             throw new RuntimeException("Engine has opened file " + this.file);
+        File directory = ProjectReader.directoryOf(project);
         this.file = directory;
 
-        Map<String, Object> project = ProjectReader.readProject(directory);
+        Map<String, Object> description = ProjectReader.readProject(directory);
         if (!ignoreFileVersion)
-            checkProjectVersion(project);
+            checkProjectVersion(description);
 
         // Знімок вихідного стану для відновлення після збою: журнал сеансу
         // містить лише зміни, тож без бази, на яку їх накотити, він марний.
@@ -289,7 +290,8 @@ public class FileIEngineImpl extends IEngineImpl {
      * історію, і все, чого формат не знає. Застарілі файли прибирає сам
      * {@link ProjectWriter}.
      */
-    public void saveProject(File directory) throws IOException {
+    public void saveProject(File project) throws IOException {
+        File directory = ProjectReader.directoryOf(project);
         List<String> sequences = new ArrayList<String>();
         for (Plugin plugin : factory.getPlugins())
             for (String sequence : plugin.getSequences())

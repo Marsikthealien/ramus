@@ -18,6 +18,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 import com.ramussoft.common.Engine;
+import com.ramussoft.core.format.ProjectWriter;
 import com.ramussoft.core.impl.FileIEngineImpl;
 import com.ramussoft.database.FileDatabaseFactory;
 import com.ramussoft.database.MemoryDatabase;
@@ -46,8 +47,8 @@ public class ProjectWriterTest {
             File out = folder.newFolder(safeName(sample) + "-yaml");
             export(sample, out);
 
-            assertTrue("немає project.yaml для " + sample.getName(),
-                    new File(out, "project.yaml").isFile());
+            assertTrue("немає опису проєкту для " + sample.getName(),
+                    new File(out, ProjectWriter.PROJECT_FILE).isFile());
             assertTrue("немає attributes.yaml для " + sample.getName(),
                     new File(out, "attributes.yaml").isFile());
 

@@ -20,6 +20,7 @@ import org.junit.rules.TemporaryFolder;
 
 import com.ramussoft.common.Engine;
 import com.ramussoft.common.Qualifier;
+import com.ramussoft.core.format.ProjectWriter;
 import com.ramussoft.core.impl.FileIEngineImpl;
 import com.ramussoft.database.FileDatabaseFactory;
 import com.ramussoft.database.MemoryDatabase;
@@ -140,6 +141,33 @@ public class ProjectRoundTripTest {
             for (Qualifier qualifier : engine.getQualifiers())
                 elements += engine.getElements(qualifier.getId()).size();
             assertTrue("відкритий проєкт не містить елементів", elements > 0);
+            ((FileIEngineImpl) engine.getDeligate()).close();
+        } finally {
+            database.close();
+        }
+    }
+
+    /**
+     * Проєкт має відкриватися і за своїм описом, а не лише за каталогом:
+     * саме файл приходить із робочого столу при подвійному клацанні.
+     */
+    @Test
+    public void projectOpensByItsDescriptionFile() throws Exception {
+        File sample = openableSamples().get(0);
+        File project = new File(folder.newFolder("by-file"), "model.ramus");
+        RsfFixture.exportProject(sample, project);
+
+        File description = new File(project, ProjectWriter.PROJECT_FILE);
+        assertTrue("немає опису проєкту", description.isFile());
+
+        MemoryDatabase database = (MemoryDatabase) FileDatabaseFactory
+                .createDatabase(description);
+        try {
+            Engine engine = database.getEngine(null);
+            int elements = 0;
+            for (Qualifier qualifier : engine.getQualifiers())
+                elements += engine.getElements(qualifier.getId()).size();
+            assertTrue("проєкт, відкритий за описом, порожній", elements > 0);
             ((FileIEngineImpl) engine.getDeligate()).close();
         } finally {
             database.close();
