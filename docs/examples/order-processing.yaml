@@ -1,0 +1,85 @@
+# Приклад опису моделі для SpecToProject.
+#
+#   ./gradlew :ramus-core-demo:specToProject \
+#       -Pspec=docs/examples/order-processing.yaml -Pout=/tmp/Замовлення.ramus
+#   ./gradlew :ramus-core-demo:renderDiagrams \
+#       -Pin=/tmp/Замовлення.ramus -Pout=/tmp/діаграми
+#
+# Опис формату — docs/DIAGRAMS_AS_CODE.md.
+
+model: 'Обробка замовлення'
+name: 'Обробити замовлення клієнта'
+type: 'idef0'
+
+blocks:
+- id: 'accept'
+  name: 'Прийняти замовлення'
+  x: 90
+  y: 70
+  width: 150
+  height: 90
+
+- id: 'pack'
+  name: 'Скомплектувати'
+  x: 330
+  y: 220
+  width: 150
+  height: 90
+  color: '#c8e6c9'
+  # Декомпозиція: усе вкладене стає діаграмою A2.
+  blocks:
+  - id: 'pick'
+    name: 'Зібрати позиції'
+    x: 110
+    y: 90
+    width: 150
+    height: 90
+  - id: 'check'
+    name: 'Перевірити комплект'
+    x: 420
+    y: 230
+    width: 150
+    height: 90
+  arrows:
+  - name: 'Підтверджене замовлення'
+    from: 'border'
+    to: 'pick'
+  - name: 'Зібрані позиції'
+    from: 'pick'
+    to: 'check'
+  - name: 'Комплект товару'
+    from: 'check'
+    to: 'border'
+  - name: 'Персонал складу'
+    from: 'border'
+    to: 'pick'
+    to-side: 'mechanism'
+
+- id: 'ship'
+  name: 'Відвантажити'
+  x: 570
+  y: 300
+  width: 150
+  height: 90
+
+arrows:
+- name: 'Замовлення клієнта'
+  from: 'border'
+  to: 'accept'
+- name: 'Регламент продажів'
+  from: 'border'
+  to: 'accept'
+  to-side: 'control'
+- name: 'Підтверджене замовлення'
+  from: 'accept'
+  to: 'pack'
+- name: 'Комплект товару'
+  from: 'pack'
+  to: 'ship'
+- name: 'Товар клієнту'
+  from: 'ship'
+  to: 'border'
+- name: 'Персонал складу'
+  from: 'border'
+  to: 'pack'
+  to-side: 'mechanism'

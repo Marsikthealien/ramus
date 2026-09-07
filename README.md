@@ -17,6 +17,7 @@ Original project by Vitaliy Yakovchuk and Oleksiy Chizhevskiy,
 
 - [Quick start](#quick-start)
 - [Project format](#project-format)
+- [Diagrams as code](#diagrams-as-code)
 - [Building](#building)
 - [Documentation](#documentation)
 - [Changes in this fork](#changes-in-this-fork)
@@ -111,6 +112,52 @@ Full reference: **[docs/PROJECT_FORMAT.md](docs/PROJECT_FORMAT.md)**.
 
 ---
 
+## Diagrams as code
+
+A model can be described in a short YAML file, built without launching the
+application, and rendered to an image — so a diagram in your documentation is
+generated from a text source on CI rather than exported by hand.
+
+```bash
+./gradlew :ramus-core-demo:specToProject \
+    -Pspec=docs/examples/order-processing.yaml -Pout=/tmp/Orders.ramus
+./gradlew :ramus-core-demo:renderDiagrams -Pin=/tmp/Orders.ramus -Pout=/tmp/diagrams
+```
+
+The description names blocks, their rectangles and the arrows between them;
+the side an arrow attaches to is its IDEF0 role — left is input, top is
+control, right is output, bottom is mechanism:
+
+```yaml
+model: 'Order processing'
+blocks:
+- id: 'accept'
+  name: 'Accept the order'
+  x: 90
+  y: 70
+  width: 150
+  height: 90
+arrows:
+- name: 'Customer order'
+  from: 'border'
+  to: 'accept'
+```
+
+Rendering uses the same painter the application draws with, and takes either a
+project directory or an `.rsf`; `-Pformat=svg` and `-Psize=1600x1200` are
+available. The same description always yields the same project, byte for byte.
+
+**Why a separate description rather than writing the project files directly.**
+Editing values in a project is safe; inventing identifiers is not — they are a
+reversible transform of a database key, so a made-up `id` silently points at
+nothing. The description is therefore read by the engine, which creates blocks
+and arrows through the same API the application uses. It builds a model once;
+from then on the model itself is the source of truth.
+
+Full reference: **[docs/DIAGRAMS_AS_CODE.md](docs/DIAGRAMS_AS_CODE.md)**.
+
+---
+
 ## Building
 
 ### Runnable JAR
@@ -191,6 +238,10 @@ instead of the binary `.rsf`; `.rsf` became read-only. Rendering is
 deterministic, identifiers are stable, and diagram layout was separated from
 the visual blob. See
 [docs/FORMAT_MIGRATION_PLAN.md](docs/FORMAT_MIGRATION_PLAN.md).
+
+**2026 — diagrams as code.** A model can be built from a YAML description and
+rendered to PNG or SVG without launching the application. See
+[docs/DIAGRAMS_AS_CODE.md](docs/DIAGRAMS_AS_CODE.md).
 
 **2026 — containerised build.** Multi-stage `Dockerfile` for building,
 testing and running without a host JDK.
