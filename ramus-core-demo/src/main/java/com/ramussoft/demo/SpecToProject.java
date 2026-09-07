@@ -32,6 +32,7 @@ import com.ramussoft.pb.Function;
 import com.ramussoft.pb.Sector;
 import com.ramussoft.pb.Stream;
 import com.ramussoft.idef0.attribute.SectorPointPersistent;
+import com.ramussoft.pb.data.negine.NSector;
 import com.ramussoft.pb.data.negine.NSectorBorder;
 import com.ramussoft.pb.idef.elements.PaintSector;
 import com.ramussoft.pb.idef.elements.ReplaceStreamType;
@@ -76,6 +77,7 @@ import com.ramussoft.pb.print.PIDEF0painter;
  *   from: 'border'                 # 'border' або id блока
  *   to: 'accept'
  *   to-side: 'input'               # input | control | output | mechanism
+ *   color: '#c0392b'               # колір лінії та підпису
  * id: 'system'                     # id кореневого блока для стрілок A-0
  * context-arrows:                  # стрілки контекстної діаграми A-0
  * - name: 'Замовлення клієнта'
@@ -135,6 +137,8 @@ public final class SpecToProject {
 
         /** {@code null} — звичайний маршрут, інакше 'under' або 'over'. */
         private String route;
+
+        private Color color;
     }
 
     public static void main(String[] args) throws Exception {
@@ -206,6 +210,13 @@ public final class SpecToProject {
         private final AccessRules rules;
 
         private final Map<String, Stream> streams = new HashMap<String, Stream>();
+
+        /**
+         * Колір стрілки за ключем її елемента. Задати його одразу не можна:
+         * колір живе у візуальному стані, який пишеться через розкладку, а
+         * вона будується вже після того, як усі стрілки створені.
+         */
+        private final Map<Long, Color> colors = new HashMap<Long, Color>();
 
         private DataPlugin plugin;
 
@@ -416,6 +427,7 @@ public final class SpecToProject {
             if (isBorder(to) && arrow.get("to-side") == null)
                 result.toSide = result.fromSide;
 
+            result.color = color(arrow.get("color"));
             result.route = text(arrow.get("route"), null);
             if (result.route != null && !"under".equals(result.route)
                     && !"over".equals(result.route))
@@ -467,6 +479,10 @@ public final class SpecToProject {
                     : rail(start, arrow.fromSide, end, arrow.toSide,
                     rail(diagram, "under".equals(arrow.route)));
             sector.setSectorPointPersistents(points(path));
+
+            if (arrow.color != null)
+                colors.put(Long.valueOf(((NSector) sector).getElementId()),
+                        arrow.color);
 
             arrows++;
         }
@@ -709,6 +725,18 @@ public final class SpecToProject {
                     fit(area, sector.getText());
                     spread(sector, placed);
                 }
+
+                for (int i = 0; i < refactor.getSectorsCount(); i++) {
+                    PaintSector sector = refactor.getSector(i);
+                    Color color = colors.get(Long.valueOf(
+                            ((NSector) sector.getSector()).getElementId()));
+                    if (color != null) {
+                        sector.setColor(color);
+                        // Колір лягає у візуальний стан лише звідси:
+                        // saveToFunction пише геометрію, а не вигляд.
+                        sector.saveVisual();
+                    }
+                }
                 refactor.saveToFunction();
 
                 // saveToFunction ставить дати ревізії поточним часом — для
@@ -750,11 +778,16 @@ public final class SpecToProject {
                     .getXOrdinateId();
         }
 
+        /**
+         * Дотик рахується за накладання: два підписи, розділені одним
+         * пікселем, читаються як один рядок.
+         */
         private static boolean overlaps(FRectangle bounds,
                                         List<FRectangle> placed) {
+            double gap = 8.0;
             for (FRectangle other : placed)
-                if (bounds.getX() < other.getX() + other.getWidth()
-                        && other.getX() < bounds.getX() + bounds.getWidth()
+                if (bounds.getX() - gap < other.getX() + other.getWidth()
+                        && other.getX() < bounds.getX() + bounds.getWidth() + gap
                         && bounds.getY() < other.getY() + other.getHeight()
                         && other.getY() < bounds.getY() + bounds.getHeight())
                     return true;
